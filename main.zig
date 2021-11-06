@@ -29,33 +29,7 @@ const Chunk = struct {
     }
 };
 
-pub fn main() !void {
-    // init
-    const chunk = Chunk{
-        .code = &std.ArrayList(usize).init(allocator),
-        .lines = &std.ArrayList(i32).init(allocator),
-        .values = &std.ArrayList(f64).init(allocator),
-    };
-
-    // var values = std.ArrayList(i32).init(allocator);
-
-    // free
-    defer chunk.free();
-
-    // write
-    try chunk.write(@enumToInt(OpCode.OpConstant), 1);
-    const constant = try chunk.addConstant(1.2);
-    try chunk.write(constant, 1);
-
-    try chunk.write(@enumToInt(OpCode.OpReturn), 1);
-
-    try chunk.write(@enumToInt(OpCode.OpConstant), 2);
-    const constant2 = try chunk.addConstant(99);
-    try chunk.write(constant2, 2);
-
-    try chunk.write(@enumToInt(OpCode.OpReturn), 2);
-
-    // Test dissembling
+fn disassembleChunk(chunk: Chunk) void {
     print("== {s} ==\n", .{"test chunk"});
 
     var offset: usize = 0;
@@ -87,7 +61,35 @@ pub fn main() !void {
             },
         }
     }
+}
 
+pub fn main() !void {
+    const chunk = Chunk{
+        .code = &std.ArrayList(usize).init(allocator),
+        .lines = &std.ArrayList(i32).init(allocator),
+        .values = &std.ArrayList(f64).init(allocator),
+    };
+
+    // var values = std.ArrayList(i32).init(allocator);
+
+    // free
+    defer chunk.free();
+
+    // write
+    try chunk.write(@enumToInt(OpCode.OpConstant), 1);
+    const constant = try chunk.addConstant(1.2);
+    try chunk.write(constant, 1);
+
+    try chunk.write(@enumToInt(OpCode.OpReturn), 1);
+
+    try chunk.write(@enumToInt(OpCode.OpConstant), 2);
+    const constant2 = try chunk.addConstant(99);
+    try chunk.write(constant2, 2);
+
+    try chunk.write(@enumToInt(OpCode.OpReturn), 2);
+
+
+    disassembleChunk(chunk);
 }
 
 // TODO: Write a unit test for chunks
