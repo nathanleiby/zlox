@@ -8,6 +8,12 @@ const OpCode = enum (usize) {
     OpConstant,
 };
 
+const InterpretResult = enum {
+    InterpretOk,
+    InterpretCompileError,
+    InterpretRuntimeError,
+};
+
 const Chunk = struct {
     code: *std.ArrayList(usize),
     lines: *std.ArrayList(i32),
@@ -26,6 +32,52 @@ const Chunk = struct {
     pub fn addConstant(self: Chunk, value: f64) !usize {
         try self.values.append(value);
         return self.values.items.len - 1;
+    }
+};
+
+const VM = struct {
+    chunk: Chunk,
+    // ip is the instruction pointer. it points to the instruction about to be executed; not the one currently being handled
+    // ip: usize = 0,
+    // ticker: usize = 0,
+
+    pub fn interpret(self: VM, _: *Chunk) InterpretResult {
+        // var foo = c;
+        // self.ip = c.code;
+        return self.run();
+    }
+
+    // fn readByte(self: VM) {
+    //     // self.ip += 1;
+
+    // }
+
+    fn run (self: VM) InterpretResult {
+        var ip: usize = 0; // instruction pointer
+        while (true) {
+            const byte = self.chunk.code.items[ip];
+            const instruction = @intToEnum(OpCode, byte);
+            ip += 1;
+            switch (instruction) {
+                OpCode.OpReturn => {
+                    return InterpretResult.InterpretOk;
+                },
+                OpCode.OpConstant => {
+                    // read_byte()
+                    const constantIdx = self.chunk.code.items[ip];
+                    ip += 1;
+                    const constant = self.chunk.values.items[constantIdx];
+                    print("{d}\n", .{constant});
+                    break;
+                },
+                // else => {
+                //     return InterpretResult.InterpretCompileError;
+                // }
+            }
+        }
+
+        // TODO
+        return InterpretResult.InterpretOk;
     }
 };
 
@@ -64,7 +116,8 @@ fn disassembleChunk(chunk: Chunk) void {
 }
 
 pub fn main() !void {
-    const chunk = Chunk{
+    // init
+    var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(i32).init(allocator),
         .values = &std.ArrayList(f64).init(allocator),
@@ -90,6 +143,14 @@ pub fn main() !void {
 
 
     disassembleChunk(chunk);
+
+    // interpret
+    const vm = VM{
+        .chunk = chunk,
+    };
+    const result = vm.interpret(&chunk);
+    print("Interpret result: {s}\n", .{result});
+
 }
 
 // TODO: Write a unit test for chunks
