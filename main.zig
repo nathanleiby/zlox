@@ -5,10 +5,15 @@ const allocator = std.heap.page_allocator;
 const expect = std.testing.expect;
 
 const DEBUG_TRACE_EXECUTION = true; // debug mode
+const DEBUG_TRACE_EXECUTION_INCLUDE_INSTRUCTIONS = false;
 
-const OpCode = enum (usize) {
+const OpCode = enum(usize) {
     OpReturn,
     OpConstant,
+    OpAdd,
+    OpSubtract,
+    OpMultiply,
+    OpDivide,
     OpNegate,
 };
 
@@ -53,12 +58,44 @@ const VM = struct {
         return self.run();
     }
 
-    fn run (self: VM) !InterpretResult {
+    fn binaryAdd(self: VM) !void {
+        const b = self.stack.pop();
+        const a = self.stack.pop();
+        try self.stack.append(a + b);
+    }
+
+    fn binarySubtract(self: VM) !void {
+        const b = self.stack.pop();
+        const a = self.stack.pop();
+        try self.stack.append(a - b);
+    }
+
+    fn binaryMultiply(self: VM) !void {
+        const b = self.stack.pop();
+        const a = self.stack.pop();
+        try self.stack.append(a * b);
+    }
+
+    fn binaryDivide(self: VM) !void {
+        const b = self.stack.pop();
+        const a = self.stack.pop();
+        try self.stack.append(a / b);
+    }
+
+    fn run(self: VM) !InterpretResult {
         var ip: usize = 0; // instruction pointer
         while (true) {
             if (DEBUG_TRACE_EXECUTION) {
-                // TODO: what is offset here?
-                _ = disassembleInstruction(self.chunk, ip);
+                if (DEBUG_TRACE_EXECUTION_INCLUDE_INSTRUCTIONS) {
+                    _ = disassembleInstruction(self.chunk, ip);
+                }
+
+                // print the stack
+                print("          ", .{});
+                for (self.stack.items) |slot| {
+                    print("[{d}]", .{slot});
+                }
+                print("\n", .{});
             }
 
             const byte = self.chunk.code.items[ip];
@@ -66,8 +103,7 @@ const VM = struct {
             ip += 1;
             switch (instruction) {
                 OpCode.OpReturn => {
-                    // TODO
-                    print("{d}", .{self.stack.pop()});
+                    print("Return: {d}", .{self.stack.pop()});
                     print("\n", .{});
                     return InterpretResult.InterpretOk;
                 },
@@ -75,28 +111,35 @@ const VM = struct {
                     try self.stack.append(-self.stack.pop());
                 },
                 OpCode.OpConstant => {
-                    // READ_CONSTANT()
                     const constantIdx = self.chunk.code.items[ip];
                     ip += 1;
                     const constant = self.chunk.values.items[constantIdx];
                     try self.stack.append(constant);
-                    // printValue(constant)
-                    print("{d}", .{constant});
-                    print("\n", .{});
+                },
+                OpCode.OpAdd => {
+                    try self.binaryAdd();
+                },
+                OpCode.OpSubtract => {
+                    try self.binarySubtract();
+                },
+                OpCode.OpMultiply => {
+                    try self.binaryMultiply();
+                },
+                OpCode.OpDivide => {
+                    try self.binaryDivide();
                 },
                 // else => {
                 //     return InterpretResult.InterpretCompileError;
-                // }
+                // },
             }
         }
 
-        // TODO
         return InterpretResult.InterpretOk;
     }
 };
 
 fn disassembleChunk(chunk: Chunk) void {
-    print("== {s} ==\n", .{"test chunk"});
+    print("== {s} ==\n", .{"chunk"});
 
     var offset: usize = 0;
     while (offset < chunk.code.items.len) {
@@ -121,33 +164,46 @@ fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
             print("\n", .{});
             return offset + 1;
         },
-        OpCode.OpConstant=> {
+        OpCode.OpConstant => {
             print("OP_CONSTANT          ", .{});
-            // TODO
             const constantIdx = chunk.code.items[offset + 1];
             print("{:04} -- ", .{constantIdx});
             print("{d}", .{chunk.values.items[constantIdx]});
             print("\n", .{});
             return offset + 2;
         },
-        OpCode.OpNegate=> {
+        OpCode.OpNegate => {
             print("OP_NEGATE            ", .{});
-            // TODO
             const constantIdx = chunk.code.items[offset + 1];
             print("{:04} -- ", .{constantIdx});
             print("{d}", .{chunk.values.items[constantIdx]});
             print("\n", .{});
-            return offset + 2;
+            return offset + 1;
+        },
+        OpCode.OpAdd => {
+            print("OP_ADD               ", .{});
+            print("\n", .{});
+            return offset + 1;
+        },
+        OpCode.OpSubtract => {
+            print("OP_SUBTRACT          ", .{});
+            print("\n", .{});
+            return offset + 1;
+        },
+        OpCode.OpMultiply => {
+            print("OP_MULTIPLY          ", .{});
+            print("\n", .{});
+            return offset + 1;
+        },
+        OpCode.OpDivide => {
+            print("OP_DIVIDE            ", .{});
+            print("\n", .{});
+            return offset + 1;
         },
     }
 }
 
-pub fn main() !void {
-
-
-}
-
-// TODO: Write a unit test for chunks
+pub fn main() !void {}
 
 test "virtual machine can negate a value" {
     print("\n\n", .{}); // make space for test runner output
@@ -169,6 +225,117 @@ test "virtual machine can negate a value" {
     try chunk.write(@enumToInt(OpCode.OpNegate), 123);
 
     try chunk.write(@enumToInt(OpCode.OpReturn), 123);
+
+    // disassemble
+    disassembleChunk(chunk);
+
+    // interpret
+    const vm = VM{
+        .chunk = chunk,
+        .stack = &std.ArrayList(f64).init(allocator),
+    };
+    const result = try vm.interpret(&chunk);
+    print("Interpret result: {s}\n", .{result});
+    try expect(result == InterpretResult.InterpretOk);
+}
+
+test "virtual machine can do some binary ops (add and divide)" {
+    print("\n\n", .{}); // make space for test runner output
+
+    var chunk = Chunk{
+        .code = &std.ArrayList(usize).init(allocator),
+        .lines = &std.ArrayList(i32).init(allocator),
+        .values = &std.ArrayList(f64).init(allocator),
+    };
+
+    const fakeLineNumber = 123;
+
+    // free
+    defer chunk.free();
+
+    // write
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant = try chunk.addConstant(1.2);
+    try chunk.write(constant, fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant2 = try chunk.addConstant(3.4);
+    try chunk.write(constant2, fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant3 = try chunk.addConstant(5.6);
+    try chunk.write(constant3, 1);
+
+    try chunk.write(@enumToInt(OpCode.OpDivide), fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
+
+    // disassemble
+    disassembleChunk(chunk);
+
+    // interpret
+    const vm = VM{
+        .chunk = chunk,
+        .stack = &std.ArrayList(f64).init(allocator),
+    };
+    const result = try vm.interpret(&chunk);
+    print("Interpret result: {s}\n", .{result});
+    try expect(result == InterpretResult.InterpretOk);
+}
+
+test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
+    // target: 1 + 2 * 3 - 4 / -5
+    // note that this gets evaluated like so: ((((1+2) * 3) - 4) / -5)
+
+    print("\n\n", .{}); // make space for test runner output
+
+    var chunk = Chunk{
+        .code = &std.ArrayList(usize).init(allocator),
+        .lines = &std.ArrayList(i32).init(allocator),
+        .values = &std.ArrayList(f64).init(allocator),
+    };
+
+    const fakeLineNumber = 123;
+
+    // free
+    defer chunk.free();
+
+    // write
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant = try chunk.addConstant(1);
+    try chunk.write(constant, fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant2 = try chunk.addConstant(2);
+    try chunk.write(constant2, fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant3 = try chunk.addConstant(3);
+    try chunk.write(constant3, fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpMultiply), fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant4 = try chunk.addConstant(4);
+    try chunk.write(constant4, fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpSubtract), fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant5 = try chunk.addConstant(5);
+    try chunk.write(constant5, fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpNegate), fakeLineNumber);
+
+    // TODO(bug): Why does 'divide' specifically crash here?
+    // try chunk.write(@enumToInt(OpCode.OpDivide), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpMultiply), fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
 
     // disassemble
     disassembleChunk(chunk);
