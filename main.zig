@@ -31,6 +31,7 @@ const Chunk = struct {
     pub fn free(self: Chunk) void {
         self.code.deinit();
         self.lines.deinit();
+        self.values.deinit();
     }
 
     pub fn write(self: Chunk, byte: usize, line: i32) !void {
@@ -51,6 +52,11 @@ const VM = struct {
     // ip is the instruction pointer. it points to the instruction about to be executed; not the one currently being handled
     // ip: usize = 0,
     // ticker: usize = 0,
+
+    pub fn free(self: VM) void {
+        self.chunk.free();
+        self.stack.deinit();
+    }
 
     pub fn interpret(self: VM, _: *Chunk) !InterpretResult {
         // var foo = c;
@@ -203,7 +209,47 @@ fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
     }
 }
 
-pub fn main() !void {}
+pub fn main() !void {
+    var chunk = Chunk{
+        .code = &std.ArrayList(usize).init(allocator),
+        .lines = &std.ArrayList(i32).init(allocator),
+        .values = &std.ArrayList(f64).init(allocator),
+    };
+    const vm = VM{
+        .chunk = chunk,
+        .stack = &std.ArrayList(f64).init(allocator),
+    };
+    defer vm.free();
+
+    // parse args
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const ally = &arena.allocator;
+
+    const stdout = std.io.getStdOut().writer();
+
+    const args = try std.process.argsAlloc(ally);
+    if (args.len > 2) {
+        print("Usage: zlox [path]\n", .{});
+        std.os.exit(64);
+        // try stdout.writeAll(usage);
+        // return;
+    } else if (args.len == 2) {
+        try runFile(args[1]);
+    } else {
+        repl();
+    }
+}
+
+fn runFile(path: []u8) !void {
+    print("runFile({s})\n", .{path});
+    return;
+}
+
+fn repl() void {
+    print("repl\n", .{});
+    return;
+}
 
 test "virtual machine can negate a value" {
     print("\n\n", .{}); // make space for test runner output
