@@ -2,6 +2,7 @@ const std = @import("std");
 const print = std.debug.print;
 // TODO: consider dep injecting this, so i can use a test one too
 const allocator = std.heap.page_allocator;
+const expect = std.testing.expect;
 
 const DEBUG_TRACE_EXECUTION = true; // debug mode
 
@@ -142,7 +143,15 @@ fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
 }
 
 pub fn main() !void {
-    // init
+
+
+}
+
+// TODO: Write a unit test for chunks
+
+test "virtual machine can negate a value" {
+    print("\n\n", .{}); // make space for test runner output
+
     var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(i32).init(allocator),
@@ -169,20 +178,7 @@ pub fn main() !void {
         .chunk = chunk,
         .stack = &std.ArrayList(f64).init(allocator),
     };
-    const result = vm.interpret(&chunk);
+    const result = try vm.interpret(&chunk);
     print("Interpret result: {s}\n", .{result});
-
+    try expect(result == InterpretResult.InterpretOk);
 }
-
-// TODO: Write a unit test for chunks
-
-// test "virtual machine" {
-//     const a = true;
-//     var x: u16 = 0;
-//     if (a) {
-//         x += 1;
-//     } else {
-//         x += 2;
-//     }
-//     try expect(x == 1);
-// }
