@@ -237,18 +237,61 @@ pub fn main() !void {
     } else if (args.len == 2) {
         try runFile(args[1]);
     } else {
-        repl();
+        try repl();
     }
 }
 
+const maxFileSize: usize = 1024;
 fn runFile(path: []u8) !void {
     print("runFile({s})\n", .{path});
+
+    var file = try std.fs.cwd().openFile(path, .{});
+    defer file.close();
+
+    const source: []u8 = try file.readToEndAlloc(allocator, maxFileSize);
+
+    const result: InterpretResult = interpret(source);
+
+    if (result == InterpretResult.InterpretCompileError) std.os.exit(65);
+    if (result == InterpretResult.InterpretRuntimeError) std.os.exit(70);
+}
+
+fn repl() !void {
+    const line = try allocator.alloc(u8, 1024);
+    while (true) {
+        print("> ", .{});
+        const stdin = std.io.getStdIn().reader();
+        _ = try stdin.readUntilDelimiterOrEof(line[0..], '\n'); // TODO: break if error
+        _ = interpret(line);
+        print("\n", .{});
+    }
     return;
 }
 
-fn repl() void {
-    print("repl\n", .{});
-    return;
+fn interpret(source: []u8) InterpretResult {
+    print("interpret({s})\n", .{source});
+    compile(source);
+    return InterpretResult.InterpretOk;
+}
+
+fn compile(source: []u8) void {
+    initScanner(source);
+}
+
+const Scanner =struct {
+    source: []u8,
+    start: usize,
+    current: usize,
+    line: usize,
+};
+
+fn initScanner(source: []u8) void {
+    const scanner = Scanner{
+        .source = source,
+        .start = 0,
+        .current = 0,
+        .line = 1,
+    };
 }
 
 test "virtual machine can negate a value" {
