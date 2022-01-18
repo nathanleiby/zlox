@@ -4,8 +4,10 @@ const print = std.debug.print;
 const allocator = std.heap.page_allocator;
 const expect = std.testing.expect;
 
+// Debugging flags
 const DEBUG_TRACE_EXECUTION = true; // debug mode
 const DEBUG_TRACE_EXECUTION_INCLUDE_INSTRUCTIONS = false;
+const DEBUG_PRINT_TOKENS = true;
 
 const OpCode = enum(usize) {
     OpReturn,
@@ -253,8 +255,6 @@ pub fn main() !void {
 
 const maxFileSize: usize = 1024;
 fn runFile(path: []u8) !void {
-    print("runFile({s})\n", .{path});
-
     // TODO: handle error: FileNotFound
     var file = try std.fs.cwd().openFile(path, .{});
     defer file.close();
@@ -284,7 +284,6 @@ fn repl() !void {
 }
 
 fn interpret(source: []u8) InterpretResult {
-    print("interpret({s})\n", .{source});
     compile(source);
     return InterpretResult.InterpretOk;
 }
@@ -296,26 +295,35 @@ const Token = struct {
     line: usize,
 };
 
-fn compile(source: []u8) void {
-    initScanner(source);
-
+fn scanTokens() void {
     var line: usize = 0;
     while (true) {
         const token: Token = scanToken();
-        if (token.line != line) {
-            print("line={d} ", .{token.line});
-            //   print("%4d ", .{token.line});
-            line = token.line;
-        } else {
-            print("   | ", .{});
+
+        if (DEBUG_PRINT_TOKENS) {
+            if (token.line != line) {
+                print("line={d} ", .{token.line});
+                //   print("%4d ", .{token.line});
+                line = token.line;
+            } else {
+                print("   | ", .{});
+            }
+
+            if (token.start + token.length < scanner.source.len) {
+                print("ttype={d} '{s}'\n", .{ token.ttype, scanner.source[token.start .. token.start + token.length] });
+            } else {
+                print("ttype={d}\n", .{token.ttype});
+            }
         }
-        // TODO
-        // printf("%2d '%.*s'\n", token.type, token.length, token.start);
-        print("ttype={d} 'length={d} start={d}'\n", .{ token.ttype, token.length, token.start });
 
         // TODO: we don't yet emit this?
         if (token.ttype == TokenType.EOF) break;
     }
+}
+
+fn compile(source: []u8) void {
+    initScanner(source);
+    scanTokens();
 }
 
 fn skipWhitespace() void {
@@ -527,8 +535,6 @@ fn string() Token {
 }
 
 fn isAtEnd() bool {
-    // print("source len = {d} current = {d} char = {c}", .{ scanner.source.len, scanner.current, scanner.source[scanner.current] });
-    // return scanner.source[scanner.current] == '\0'; // TODO: error: invalid character
     return scanner.current >= scanner.source.len - 1;
 }
 
