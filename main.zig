@@ -255,6 +255,7 @@ const maxFileSize: usize = 1024;
 fn runFile(path: []u8) !void {
     print("runFile({s})\n", .{path});
 
+    // TODO: handle error: FileNotFound
     var file = try std.fs.cwd().openFile(path, .{});
     defer file.close();
 
@@ -271,9 +272,13 @@ fn repl() !void {
     while (true) {
         print("> ", .{});
         const stdin = std.io.getStdIn().reader();
-        _ = try stdin.readUntilDelimiterOrEof(line[0..], '\n'); // TODO: break if error
-        _ = interpret(line);
-        print("\n", .{});
+        const optional_s = try stdin.readUntilDelimiterOrEof(line[0..], '\n'); // TODO: break if error
+        if (optional_s) |s| {
+            _ = interpret(s);
+            print("\n", .{});
+        } else {
+            break;
+        }
     }
     return;
 }
@@ -294,7 +299,7 @@ const Token = struct {
 fn compile(source: []u8) void {
     initScanner(source);
 
-    var line: usize = 100000; // TODO: chose a better sentinel value
+    var line: usize = 0;
     while (true) {
         const token: Token = scanToken();
         if (token.line != line) {
@@ -307,7 +312,6 @@ fn compile(source: []u8) void {
         // TODO
         // printf("%2d '%.*s'\n", token.type, token.length, token.start);
         print("ttype={d} 'length={d} start={d}'\n", .{ token.ttype, token.length, token.start });
-        print("\n", .{});
 
         // TODO: we don't yet emit this?
         if (token.ttype == TokenType.EOF) break;
@@ -341,6 +345,7 @@ fn peek() u8 {
 }
 
 fn peekNext() u8 {
+    // TODO: Explore use of https://ziglang.org/documentation/master/#Sentinel-Terminated-Slices
     if (isAtEnd()) return 0; // can I handle 0s like \0 would work in C implementation?
     return scanner.source[scanner.current + 1];
 }
