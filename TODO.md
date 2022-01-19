@@ -1,0 +1,2 @@
+- [ ] (someday) code profiling / speed
+    - could profile some of the open-source impls too, for comparison
