@@ -221,41 +221,23 @@ fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
     }
 }
 
-pub fn main() !void {
+pub fn interpret(source: []u8) !InterpretResult {
     var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(i32).init(allocator),
         .values = &std.ArrayList(f64).init(allocator),
     };
+    defer chunk.free();
+
+    if (!compile(source, &chunk)) return InterpretResult.InterpretCompileError;
+
     const vm = VM{
         .chunk = chunk,
         .stack = &std.ArrayList(f64).init(allocator),
     };
-    defer vm.free();
 
-    // parse args
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const ally = &arena.allocator;
-
-    const stdout = std.io.getStdOut().writer();
-
-    const args = try std.process.argsAlloc(ally);
-    if (args.len > 2) {
-        print("Usage: zlox [path]\n", .{});
-        std.os.exit(64);
-        // try stdout.writeAll(usage);
-        // return;
-    } else if (args.len == 2) {
-        try runFile(args[1]);
-    } else {
-        try repl();
-    }
-}
-
-pub fn interpret(source: []u8) InterpretResult {
-    compile(source);
-    return InterpretResult.InterpretOk;
+    const result = try vm.run();
+    return result;
 }
 
 const Token = struct {
@@ -291,9 +273,87 @@ fn scanTokens() void {
     }
 }
 
-fn compile(source: []u8) void {
+fn compile(source: []u8, chunk: *Chunk) bool {
     initScanner(source);
-    scanTokens();
+
+    parser.hadError = false;
+    parser.panicMode = false;
+
+    advanceCompiler();
+    // expression(); // TODO
+    consume(TokenType.EOF, "Expect end of expression.");
+    return !parser.hadError;
+}
+
+fn consume(ttype: TokenType, message: []const u8) void {
+    if (parser.current.ttype == ttype) {
+        advanceCompiler();
+        return;
+    }
+
+    errorAtCurrent(message);
+}
+
+const Parser = struct {
+    current: Token,
+    previous: Token,
+    hadError: bool,
+    panicMode: bool,
+};
+
+var parser = Parser{
+    // start with placeholder tokens
+    .current = Token{
+        .ttype = TokenType.ERROR,
+        .start = 0,
+        .length = 0,
+        .line = 0,
+    },
+    .previous = Token{
+        .ttype = TokenType.ERROR,
+        .start = 0,
+        .length = 0,
+        .line = 0,
+    },
+    .hadError = false,
+    .panicMode = false,
+};
+
+fn advanceCompiler() void {
+    parser.previous = parser.current;
+
+    while (true) {
+        parser.current = scanToken();
+        if (parser.current.ttype != TokenType.ERROR) break;
+
+        errorAtCurrent("advanceCompiler error"); // TODO
+    }
+}
+
+fn errorAtCurrent(message: []const u8) void {
+    errorAt(&parser.current, message);
+}
+
+fn err(message: []const u8) void {
+    errorAt(&parser.previous, message);
+}
+
+fn errorAt(token: *Token, message: []const u8) void {
+    if (parser.panicMode) return;
+
+    print("[line {d}] Error", .{token.line});
+
+    if (token.ttype == TokenType.EOF) {
+        print(" at end", .{});
+    } else if (token.ttype == TokenType.ERROR) {
+        // do nothing
+    } else {
+        print(" at '{s}'", .{scanner.source[token.start .. token.start + token.length]});
+    }
+
+    print(": {s}\n", .{message});
+
+    parser.hadError = true;
 }
 
 fn skipWhitespace() void {

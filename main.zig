@@ -46,7 +46,7 @@ fn runFile(path: []u8) !void {
 
     const source: []u8 = try file.readToEndAlloc(allocator, maxFileSize);
 
-    const result: interpreter.InterpretResult = interpreter.interpret(source);
+    const result: interpreter.InterpretResult = try interpreter.interpret(source);
 
     if (result == interpreter.InterpretResult.InterpretCompileError) std.os.exit(65);
     if (result == interpreter.InterpretResult.InterpretRuntimeError) std.os.exit(70);
@@ -59,7 +59,7 @@ fn repl() !void {
         const stdin = std.io.getStdIn().reader();
         const optional_s = try stdin.readUntilDelimiterOrEof(line[0..], '\n'); // TODO: break if error
         if (optional_s) |s| {
-            _ = interpreter.interpret(s);
+            _ = try interpreter.interpret(s);
             print("\n", .{});
         } else {
             break;
