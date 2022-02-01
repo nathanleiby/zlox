@@ -4,12 +4,13 @@ const print = std.debug.print;
 const allocator = std.heap.page_allocator;
 const expect = std.testing.expect;
 
-const interpreter = @import("./interpreter.zig");
+const interpreter = @import("./vm.zig");
+const Chunk = @import("./chunk.zig").Chunk;
 
 pub fn main() !void {
-    var chunk = interpreter.Chunk{
+    var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
-        .lines = &std.ArrayList(i32).init(allocator),
+        .lines = &std.ArrayList(usize).init(allocator),
         .values = &std.ArrayList(f64).init(allocator),
     };
     const vm = interpreter.VM{
