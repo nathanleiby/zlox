@@ -1,0 +1,15 @@
+name: CI
+on: push
+jobs:
+  test:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install Zig
+        uses: goto-bus-stop/setup-zig@default
+        with:
+          version: 0.9.0
+      - name: Run tests
+        run: zig test vm.zig
