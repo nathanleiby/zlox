@@ -181,6 +181,7 @@ fn getRule(ttype: TokenType) *ParseRule {
 fn parsePrecedence(precedence: Precedence) void {
     advance();
     const prefixRule = getRule(parser.previous.ttype).prefix;
+    print("prefixRule: {s}", .{prefixRule}); // TODO: this is weird but makes things work. ZIGGGGGG
     if (prefixRule == undefined) {
         err("Expect expression.");
         return;
