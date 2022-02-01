@@ -1,3 +1,2 @@
-- split things out into files: vm, scanner, compiler
 - [ ] (someday) code profiling / speed
     - could profile some of the open-source impls too, for comparison

@@ -300,7 +300,7 @@ pub const Scanner = struct {
 };
 
 // TODO: encapsulate behavior in a struct, instead of global var
-pub var scanner: Scanner = undefined;
+var scanner: Scanner = undefined;
 
 pub fn initScanner(source: []u8) void {
     scanner = Scanner{
