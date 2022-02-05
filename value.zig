@@ -34,6 +34,18 @@ pub fn IsNumber(v: Value) bool {
     return (@as(Value, v) == Value.number);
 }
 
+fn IsNil(v: Value) bool {
+    return (@as(Value, v) == Value.nil);
+}
+
+fn IsBoolean(v: Value) bool {
+    return (@as(Value, v) == Value.boolean);
+}
+
+pub fn IsFalsey(v: Value) bool {
+    return IsNil(v) or (IsBoolean(v) and !v.boolean);
+}
+
 pub fn printValue(value: Value) void {
     switch (value) {
         Value.number => |v| print("{d}", .{v}),

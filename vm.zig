@@ -10,6 +10,7 @@ const OpCode = @import("./chunk.zig").OpCode;
 
 const Value = @import("./value.zig").Value;
 const IsNumber = @import("./value.zig").IsNumber;
+const IsFalsey = @import("./value.zig").IsFalsey;
 
 const compiler = @import("./compiler.zig");
 
@@ -214,6 +215,9 @@ pub const VM = struct {
                     }
                     try self.binaryDivide();
                 },
+                OpCode.OpNot => {
+                    try self.stack.append(Value{.boolean = IsFalsey(self.stack.pop())});
+                }
                 // else => {
                 //     return InterpretResult.InterpretCompileError;
                 // },

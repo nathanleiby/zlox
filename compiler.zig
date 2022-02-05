@@ -54,7 +54,7 @@ fn initRules() void {
     rules[@enumToInt(TokenType.SEMICOLON)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.SLASH)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_FACTOR };
     rules[@enumToInt(TokenType.STAR)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_FACTOR };
-    rules[@enumToInt(TokenType.BANG)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.BANG)] = ParseRule{ .prefix = unary, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.BANG_EQUAL)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.EQUAL)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.EQUAL_EQUAL)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
@@ -161,11 +161,17 @@ fn unary() void {
     parsePrecedence(Precedence.PREC_UNARY);
 
     // Emit the operator instruction.
-    if (operatorType == TokenType.MINUS) {
-        // TODO: need to make this work with fn type for Pratt
-        emitByte(@enumToInt(OpCode.OpNegate));
+    switch (operatorType) {
+        TokenType.MINUS => {
+            emitByte(@enumToInt(OpCode.OpNegate));
+        },
+        TokenType.BANG => {
+            emitByte(@enumToInt(OpCode.OpNot));
+        },
+        else => {
+            unreachable;
+        }
     }
-    // TODO: unreachable
 }
 
 fn binary() void {

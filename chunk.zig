@@ -15,6 +15,7 @@ pub const OpCode = enum(usize) {
     OpMultiply,
     OpDivide,
     OpNegate,
+    OpNot,
 };
 
 const lineType = usize;
@@ -101,6 +102,9 @@ fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
         },
         OpCode.OpFalse=> {
             return simpleInstruction("OP_FALSE", offset);
+        },
+        OpCode.OpNot => {
+            return simpleInstruction("OP_NOT", offset);
         },
     }
 }
