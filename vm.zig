@@ -168,7 +168,7 @@ test "virtual machine can negate a value" {
     var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(Value).init(allocator),
+        .values = &std.ArrayList(f64).init(allocator),
     };
 
     // free
@@ -235,7 +235,7 @@ test "virtual machine can do some binary ops (add and divide)" {
     // interpret
     const vm = VM{
         .chunk = chunk,
-        .stack = &std.ArrayList(f64).init(allocator),
+        .stack = &std.ArrayList(Value).init(allocator),
     };
     const result = try vm.interpret(&chunk);
     print("Interpret result: {s}\n", .{result});
@@ -300,7 +300,7 @@ test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
     // interpret
     const vm = VM{
         .chunk = chunk,
-        .stack = &std.ArrayList(f64).init(allocator),
+        .stack = &std.ArrayList(Value).init(allocator),
     };
     const result = try vm.interpret(&chunk);
     print("Interpret result: {s}\n", .{result});
