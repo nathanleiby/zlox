@@ -6,6 +6,7 @@ const expect = std.testing.expect;
 
 const interpreter = @import("./vm.zig");
 const Chunk = @import("./chunk.zig").Chunk;
+const Value = @import("./value.zig").Value;
 
 pub fn main() !void {
     var chunk = Chunk{
@@ -15,7 +16,7 @@ pub fn main() !void {
     };
     const vm = interpreter.VM{
         .chunk = chunk,
-        .stack = &std.ArrayList(f64).init(allocator),
+        .stack = &std.ArrayList(Value).init(allocator),
     };
     defer vm.free();
 

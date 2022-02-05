@@ -8,6 +8,8 @@ const Chunk = @import("./chunk.zig").Chunk;
 const disassembleChunk = @import("./chunk.zig").disassembleChunk;
 const OpCode = @import("./chunk.zig").OpCode;
 
+const Value = @import("./value.zig").Value;
+
 const compiler = @import("./compiler.zig");
 
 // Debugging flags
@@ -46,7 +48,7 @@ pub fn interpret(source: []u8) !InterpretResult {
 
     const vm = VM{
         .chunk = chunk,
-        .stack = &std.ArrayList(f64).init(allocator),
+        .stack = &std.ArrayList(Value).init(allocator),
     };
 
     const result = try vm.run();
@@ -55,7 +57,7 @@ pub fn interpret(source: []u8) !InterpretResult {
 
 pub const VM = struct {
     chunk: Chunk,
-    stack: *std.ArrayList(f64),
+    stack: *std.ArrayList(Value),
 
     // ip is the instruction pointer. it points to the instruction about to be executed; not the one currently being handled
     // ip: usize = 0,
@@ -72,28 +74,32 @@ pub const VM = struct {
         return self.run();
     }
 
+    fn peek(self: VM, distance: usize) Value {
+        return self.stack.items[self.stack.items.len - 1 - distance];
+    }
+
     fn binaryAdd(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(a + b);
+        try self.stack.append(Value{.double = a.double + b.double});
     }
 
     fn binarySubtract(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(a - b);
+        try self.stack.append(Value{.double = a.double - b.double});
     }
 
     fn binaryMultiply(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(a * b);
+        try self.stack.append(Value{.double = a.double * b.double});
     }
 
     fn binaryDivide(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(a / b);
+        try self.stack.append(Value{.double = a.double / b.double});
     }
 
     fn run(self: VM) !InterpretResult {
@@ -121,14 +127,18 @@ pub const VM = struct {
                     print("\n", .{});
                     return InterpretResult.InterpretOk;
                 },
+
                 OpCode.OpNegate => {
-                    try self.stack.append(-self.stack.pop());
+                    if (!(@as(Value, self.peek(0)) == Value.double)) {
+                        return InterpretResult.InterpretRuntimeError;
+                    }
+                    try self.stack.append(Value{.double = -self.stack.pop().double});
                 },
                 OpCode.OpConstant => {
                     const constantIdx = self.chunk.code.items[ip];
                     ip += 1;
                     const constant = self.chunk.values.items[constantIdx];
-                    try self.stack.append(constant);
+                    try self.stack.append(Value{.double = constant});
                 },
                 OpCode.OpAdd => {
                     try self.binaryAdd();
@@ -158,7 +168,7 @@ test "virtual machine can negate a value" {
     var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(f64).init(allocator),
+        .values = &std.ArrayList(Value).init(allocator),
     };
 
     // free
@@ -179,7 +189,7 @@ test "virtual machine can negate a value" {
     // interpret
     const vm = VM{
         .chunk = chunk,
-        .stack = &std.ArrayList(f64).init(allocator),
+        .stack = &std.ArrayList(Value).init(allocator),
     };
     const result = try vm.interpret(&chunk);
     print("Interpret result: {s}\n", .{result});
