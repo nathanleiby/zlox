@@ -12,7 +12,7 @@ const scanToken = @import("./scanner.zig").scanToken;
 const Token = @import("./scanner.zig").Token;
 const TokenType = @import("./scanner.zig").TokenType;
 
-const Value = f64;
+const Value = @import("./value.zig").Value;
 
 const MAX_CONSTANTS = 256;
 
@@ -125,8 +125,8 @@ fn expression() void {
 
 fn number() void {
     // TODO: for now, falls back to 0 instead of erroring
-    const value = std.fmt.parseFloat(Value, tokenString(parser.previous)) catch 0;
-    emitConstant(value);
+    const value = std.fmt.parseFloat(f64, tokenString(parser.previous)) catch 0;
+    emitConstant(Value{ .double = value });
 }
 
 fn grouping() void {
@@ -215,7 +215,7 @@ fn emitConstant(value: Value) void {
 }
 
 fn makeConstant(value: Value) u8 {
-    const constIdx = currentChunk().addConstant(value) catch {
+    const constIdx = currentChunk().addConstant(value.double) catch {
         err("Failed to add constant.");
         return 0;
     };
