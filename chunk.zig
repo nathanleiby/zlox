@@ -1,9 +1,15 @@
 const std = @import("std");
 const print = std.debug.print;
 
+const allocator = std.heap.page_allocator;
+const expect = std.testing.expect;
+
 pub const OpCode = enum(usize) {
     OpReturn,
     OpConstant,
+    OpNil,
+    OpTrue,
+    OpFalse,
     OpAdd,
     OpSubtract,
     OpMultiply,
@@ -57,9 +63,7 @@ fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
     const item = @intToEnum(OpCode, byte);
     switch (item) {
         OpCode.OpReturn => {
-            print("OP_RETURN            ", .{});
-            print("\n", .{});
-            return offset + 1;
+            return simpleInstruction("OP_RETURN", offset);
         },
         OpCode.OpConstant => {
             print("OP_CONSTANT          ", .{});
@@ -78,24 +82,69 @@ fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
             return offset + 1;
         },
         OpCode.OpAdd => {
-            print("OP_ADD               ", .{});
-            print("\n", .{});
-            return offset + 1;
+            return simpleInstruction("OP_ADD", offset);
         },
         OpCode.OpSubtract => {
-            print("OP_SUBTRACT          ", .{});
-            print("\n", .{});
-            return offset + 1;
+            return simpleInstruction("OP_SUBTRACT", offset);
         },
         OpCode.OpMultiply => {
-            print("OP_MULTIPLY          ", .{});
-            print("\n", .{});
-            return offset + 1;
+            return simpleInstruction("OP_MULTIPLY", offset);
         },
         OpCode.OpDivide => {
-            print("OP_DIVIDE            ", .{});
-            print("\n", .{});
-            return offset + 1;
+            return simpleInstruction("OP_DIVIDE", offset);
+        },
+        OpCode.OpNil => {
+            return simpleInstruction("OP_NIL", offset);
+        },
+        OpCode.OpTrue => {
+            return simpleInstruction("OP_TRUE", offset);
+        },
+        OpCode.OpFalse=> {
+            return simpleInstruction("OP_FALSE", offset);
         },
     }
+}
+
+fn simpleInstruction (name: []const u8, offset: usize) usize {
+    print("{s}", .{name});
+    // TODO: hacky fixed width
+    var i: usize = 0;
+    while (i < 16 - name.len) {
+        print(" ", .{});
+        i += 1;
+    }
+    print("\n", .{});
+    return offset + 1;
+}
+
+test "chunk" {
+    var chunk = Chunk{
+        .code = &std.ArrayList(usize).init(allocator),
+        .lines = &std.ArrayList(usize).init(allocator),
+        .values = &std.ArrayList(f64).init(allocator),
+    };
+
+    const fakeLineNumber = 123;
+
+    // free
+    defer chunk.free();
+
+    // write
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant = try chunk.addConstant(1.2);
+    try chunk.write(constant, fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpSubtract), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpDivide), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpMultiply), fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
+
+    try chunk.write(@enumToInt(OpCode.OpTrue), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpFalse), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpNil), fakeLineNumber);
+
+    // disassemble
+    disassembleChunk(chunk, "chunk");
 }

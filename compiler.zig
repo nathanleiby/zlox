@@ -68,17 +68,17 @@ fn initRules() void {
     rules[@enumToInt(TokenType.AND)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.CLASS)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.ELSE)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.FALSE)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.FALSE)] = ParseRule{ .prefix = literal, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.FOR)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.FUN)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.IF)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.NIL)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.NIL)] = ParseRule{ .prefix = literal, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.OR)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.PRINT)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.RETURN)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.SUPER)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.THIS)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.TRUE)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.TRUE)] = ParseRule{ .prefix = literal, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.VAR)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.WHILE)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.ERROR)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
@@ -123,10 +123,29 @@ fn expression() void {
     parsePrecedence(Precedence.PREC_ASSIGNMENT);
 }
 
+fn literal() void {
+    print("literal", .{});
+    switch (parser.previous.ttype) {
+        TokenType.FALSE=> {
+            emitByte(@enumToInt(OpCode.OpFalse));
+        },
+        TokenType.TRUE=> {
+            emitByte(@enumToInt(OpCode.OpTrue));
+        },
+        TokenType.NIL => {
+            emitByte(@enumToInt(OpCode.OpNil));
+        },
+        else => {
+            // unreachable
+            return;
+        },
+    }
+}
+
 fn number() void {
     // TODO: for now, falls back to 0 instead of erroring
     const value = std.fmt.parseFloat(f64, tokenString(parser.previous)) catch 0;
-    emitConstant(Value{ .double = value });
+    emitConstant(Value{ .number = value });
 }
 
 fn grouping() void {
@@ -215,7 +234,7 @@ fn emitConstant(value: Value) void {
 }
 
 fn makeConstant(value: Value) u8 {
-    const constIdx = currentChunk().addConstant(value.double) catch {
+    const constIdx = currentChunk().addConstant(value.number) catch {
         err("Failed to add constant.");
         return 0;
     };

@@ -9,6 +9,7 @@ const disassembleChunk = @import("./chunk.zig").disassembleChunk;
 const OpCode = @import("./chunk.zig").OpCode;
 
 const Value = @import("./value.zig").Value;
+const IsNumber = @import("./value.zig").IsNumber;
 
 const compiler = @import("./compiler.zig");
 
@@ -81,25 +82,48 @@ pub const VM = struct {
     fn binaryAdd(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(Value{.double = a.double + b.double});
+        try self.stack.append(Value{.number = a.number + b.number});
     }
 
     fn binarySubtract(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(Value{.double = a.double - b.double});
+        try self.stack.append(Value{.number = a.number - b.number});
     }
 
     fn binaryMultiply(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(Value{.double = a.double * b.double});
+        try self.stack.append(Value{.number = a.number * b.number});
     }
 
     fn binaryDivide(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(Value{.double = a.double / b.double});
+        try self.stack.append(Value{.number = a.number / b.number});
+    }
+
+
+    // TODO: Find where this was defined in book
+    fn resetStack(_: VM) void {
+        // TODO
+        // ...
+        // self.stack.deinit();
+        // self.stack.init();
+    }
+
+    //static void runtimeError(const char* format, ...) {
+    fn runtimeError(self: VM, _: []const u8) void {
+        // va_list args;
+        // va_start(args, format);
+        // vfprintf(stderr, format, args);
+        // va_end(args);
+        // fputs("\n", stderr);
+
+        // size_t instruction = vm.ip - vm.chunk->code - 1;
+        // int line = vm.chunk->lines[instruction];
+        // fprintf(stderr, "[line %d] in script\n", line);
+        // resetStack();
     }
 
     fn run(self: VM) !InterpretResult {
@@ -129,27 +153,64 @@ pub const VM = struct {
                 },
 
                 OpCode.OpNegate => {
-                    if (!(@as(Value, self.peek(0)) == Value.double)) {
+                    if (!(@as(Value, self.peek(0)) == Value.number)) {
                         return InterpretResult.InterpretRuntimeError;
                     }
-                    try self.stack.append(Value{.double = -self.stack.pop().double});
+                    try self.stack.append(Value{.number = -self.stack.pop().number});
                 },
                 OpCode.OpConstant => {
                     const constantIdx = self.chunk.code.items[ip];
                     ip += 1;
                     const constant = self.chunk.values.items[constantIdx];
-                    try self.stack.append(Value{.double = constant});
+                    try self.stack.append(Value{.number = constant});
+                },
+                OpCode.OpFalse=> {
+                    try self.stack.append(Value{.boolean = false});
+                },
+                OpCode.OpTrue=> {
+                    try self.stack.append(Value{.boolean = true});
+                },
+                OpCode.OpNil=> {
+                    try self.stack.append(Value{.nil = undefined});
                 },
                 OpCode.OpAdd => {
+                    if (!(
+                        IsNumber(self.peek(0)) and
+                        IsNumber(self.peek(1))
+                    )) {
+                        self.runtimeError("Operands must be numbers.");
+                        return InterpretResult.InterpretRuntimeError;
+                    }
                     try self.binaryAdd();
                 },
                 OpCode.OpSubtract => {
+                    if (!(
+                        IsNumber(self.peek(0)) and
+                        IsNumber(self.peek(1))
+                    )) {
+                        self.runtimeError("Operands must be numbers.");
+                        return InterpretResult.InterpretRuntimeError;
+                    }
                     try self.binarySubtract();
                 },
                 OpCode.OpMultiply => {
+                    if (!(
+                        IsNumber(self.peek(0)) and
+                        IsNumber(self.peek(1))
+                    )) {
+                        self.runtimeError("Operands must be numbers.");
+                        return InterpretResult.InterpretRuntimeError;
+                    }
                     try self.binaryMultiply();
                 },
                 OpCode.OpDivide => {
+                    if (!(
+                        IsNumber(self.peek(0)) and
+                        IsNumber(self.peek(1))
+                    )) {
+                        self.runtimeError("Operands must be numbers.");
+                        return InterpretResult.InterpretRuntimeError;
+                    }
                     try self.binaryDivide();
                 },
                 // else => {
