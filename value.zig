@@ -46,6 +46,20 @@ pub fn IsFalsey(v: Value) bool {
     return IsNil(v) or (IsBoolean(v) and !v.boolean);
 }
 
+pub fn valuesEqual(a: Value, b: Value) bool {
+    // values must be of same type before they can be equal
+    var aType: ValueType = a;
+    var bType: ValueType = b;
+    if (aType != bType) return false;
+
+    switch (a) {
+        ValueType.boolean => return a.boolean == b.boolean,
+        ValueType.nil => return true,
+        ValueType.number => return a.number == b.number,
+        // else => return false,
+    }
+}
+
 pub fn printValue(value: Value) void {
     switch (value) {
         Value.number => |v| print("{d}", .{v}),
@@ -70,7 +84,7 @@ test "tagged union can access chosen type" {
     try expect(@as(Value, c1) == Value.boolean);
     printValue(c1);
 
-    const c2 = Value{ .number = 1.234};
+    const c2 = Value{ .number = 1.234 };
     try expect(@as(Value, c2) == Value.number);
     printValue(c2);
 

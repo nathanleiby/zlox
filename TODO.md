@@ -1,2 +1,3 @@
+- [ ] Refactor the Value union to use more elegant code (see Zig docs for unions.. they can infer type, have methods on struct)
 - [ ] (someday) code profiling / speed
     - could profile some of the open-source impls too, for comparison

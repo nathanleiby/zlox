@@ -55,13 +55,13 @@ fn initRules() void {
     rules[@enumToInt(TokenType.SLASH)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_FACTOR };
     rules[@enumToInt(TokenType.STAR)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_FACTOR };
     rules[@enumToInt(TokenType.BANG)] = ParseRule{ .prefix = unary, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.BANG_EQUAL)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.BANG_EQUAL)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_EQUALITY };
     rules[@enumToInt(TokenType.EQUAL)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.EQUAL_EQUAL)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.GREATER)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.GREATER_EQUAL)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.LESS)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.LESS_EQUAL)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.EQUAL_EQUAL)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_EQUALITY };
+    rules[@enumToInt(TokenType.GREATER)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_COMPARISON };
+    rules[@enumToInt(TokenType.GREATER_EQUAL)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_COMPARISON };
+    rules[@enumToInt(TokenType.LESS)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_COMPARISON };
+    rules[@enumToInt(TokenType.LESS_EQUAL)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_COMPARISON };
     rules[@enumToInt(TokenType.IDENTIFIER)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.STRING)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.NUMBER)] = ParseRule{ .prefix = number, .infix = undefined, .precedence = Precedence.PREC_NONE };
@@ -126,10 +126,10 @@ fn expression() void {
 fn literal() void {
     print("literal", .{});
     switch (parser.previous.ttype) {
-        TokenType.FALSE=> {
+        TokenType.FALSE => {
             emitByte(@enumToInt(OpCode.OpFalse));
         },
-        TokenType.TRUE=> {
+        TokenType.TRUE => {
             emitByte(@enumToInt(OpCode.OpTrue));
         },
         TokenType.NIL => {
@@ -170,7 +170,7 @@ fn unary() void {
         },
         else => {
             unreachable;
-        }
+        },
     }
 }
 
@@ -191,6 +191,24 @@ fn binary() void {
         },
         TokenType.SLASH => {
             emitByte(@enumToInt(OpCode.OpDivide));
+        },
+        TokenType.BANG_EQUAL => {
+            emitBytes(@enumToInt(OpCode.OpEqual), @enumToInt(OpCode.OpNot));
+        },
+        TokenType.EQUAL_EQUAL => {
+            emitByte(@enumToInt(OpCode.OpEqual));
+        },
+        TokenType.GREATER_EQUAL => {
+            emitBytes(@enumToInt(OpCode.OpGreater), @enumToInt(OpCode.OpEqual));
+        },
+        TokenType.GREATER => {
+            emitByte(@enumToInt(OpCode.OpGreater));
+        },
+        TokenType.LESS_EQUAL => {
+            emitBytes(@enumToInt(OpCode.OpLess), @enumToInt(OpCode.OpEqual));
+        },
+        TokenType.LESS => {
+            emitByte(@enumToInt(OpCode.OpLess));
         },
         else => {
             // unreachable

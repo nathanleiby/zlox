@@ -9,6 +9,8 @@ const disassembleChunk = @import("./chunk.zig").disassembleChunk;
 const OpCode = @import("./chunk.zig").OpCode;
 
 const Value = @import("./value.zig").Value;
+const valuesEqual = @import("./value.zig").valuesEqual;
+const printValue = @import("./value.zig").printValue;
 const IsNumber = @import("./value.zig").IsNumber;
 const IsFalsey = @import("./value.zig").IsFalsey;
 
@@ -83,27 +85,38 @@ pub const VM = struct {
     fn binaryAdd(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(Value{.number = a.number + b.number});
+        try self.stack.append(Value{ .number = a.number + b.number });
     }
 
     fn binarySubtract(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(Value{.number = a.number - b.number});
+        try self.stack.append(Value{ .number = a.number - b.number });
     }
 
     fn binaryMultiply(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(Value{.number = a.number * b.number});
+        try self.stack.append(Value{ .number = a.number * b.number });
     }
 
     fn binaryDivide(self: VM) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(Value{.number = a.number / b.number});
+        try self.stack.append(Value{ .number = a.number / b.number });
     }
 
+    fn binaryGreater(self: VM) !void {
+        const b = self.stack.pop();
+        const a = self.stack.pop();
+        try self.stack.append(Value{ .boolean = a.number > b.number });
+    }
+
+    fn binaryLess(self: VM) !void {
+        const b = self.stack.pop();
+        const a = self.stack.pop();
+        try self.stack.append(Value{ .boolean = a.number < b.number });
+    }
 
     // TODO: Find where this was defined in book
     fn resetStack(_: VM) void {
@@ -138,7 +151,9 @@ pub const VM = struct {
                 // print the stack
                 print("          ", .{});
                 for (self.stack.items) |slot| {
-                    print("[{d}]", .{slot});
+                    print("[", .{});
+                    printValue(slot);
+                    print("]", .{});
                 }
                 print("\n", .{});
             }
@@ -158,66 +173,81 @@ pub const VM = struct {
                         self.runtimeError("Negation operand must be a number.");
                         return InterpretResult.InterpretRuntimeError;
                     }
-                    try self.stack.append(Value{.number = -self.stack.pop().number});
+                    try self.stack.append(Value{ .number = -self.stack.pop().number });
                 },
                 OpCode.OpConstant => {
                     const constantIdx = self.chunk.code.items[ip];
                     ip += 1;
                     const constant = self.chunk.values.items[constantIdx];
-                    try self.stack.append(Value{.number = constant});
+                    try self.stack.append(Value{ .number = constant });
                 },
-                OpCode.OpFalse=> {
-                    try self.stack.append(Value{.boolean = false});
+                OpCode.OpFalse => {
+                    try self.stack.append(Value{ .boolean = false });
                 },
-                OpCode.OpTrue=> {
-                    try self.stack.append(Value{.boolean = true});
+                OpCode.OpTrue => {
+                    try self.stack.append(Value{ .boolean = true });
                 },
-                OpCode.OpNil=> {
-                    try self.stack.append(Value{.nil = undefined});
+                OpCode.OpNil => {
+                    try self.stack.append(Value{ .nil = undefined });
                 },
                 OpCode.OpAdd => {
-                    if (!(
-                        IsNumber(self.peek(0)) and
-                        IsNumber(self.peek(1))
-                    )) {
+                    if (!(IsNumber(self.peek(0)) and
+                        IsNumber(self.peek(1))))
+                    {
                         self.runtimeError("Operands must be numbers.");
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binaryAdd();
                 },
                 OpCode.OpSubtract => {
-                    if (!(
-                        IsNumber(self.peek(0)) and
-                        IsNumber(self.peek(1))
-                    )) {
+                    if (!(IsNumber(self.peek(0)) and
+                        IsNumber(self.peek(1))))
+                    {
                         self.runtimeError("Operands must be numbers.");
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binarySubtract();
                 },
                 OpCode.OpMultiply => {
-                    if (!(
-                        IsNumber(self.peek(0)) and
-                        IsNumber(self.peek(1))
-                    )) {
+                    if (!(IsNumber(self.peek(0)) and
+                        IsNumber(self.peek(1))))
+                    {
                         self.runtimeError("Operands must be numbers.");
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binaryMultiply();
                 },
                 OpCode.OpDivide => {
-                    if (!(
-                        IsNumber(self.peek(0)) and
-                        IsNumber(self.peek(1))
-                    )) {
+                    if (!(IsNumber(self.peek(0)) and
+                        IsNumber(self.peek(1))))
+                    {
                         self.runtimeError("Operands must be numbers.");
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binaryDivide();
                 },
                 OpCode.OpNot => {
-                    try self.stack.append(Value{.boolean = IsFalsey(self.stack.pop())});
-                }
+                    try self.stack.append(Value{ .boolean = IsFalsey(self.stack.pop()) });
+                },
+                OpCode.OpEqual => {
+                    const b = self.stack.pop();
+                    const a = self.stack.pop();
+                    try self.stack.append(Value{ .boolean = valuesEqual(a, b) });
+                },
+                OpCode.OpGreater => {
+                    if (!(IsNumber(self.peek(0)) and IsNumber(self.peek(1)))) {
+                        self.runtimeError("Operands must be numbers.");
+                        return InterpretResult.InterpretRuntimeError;
+                    }
+                    try self.binaryGreater();
+                },
+                OpCode.OpLess => {
+                    if (!(IsNumber(self.peek(0)) and IsNumber(self.peek(1)))) {
+                        self.runtimeError("Operands must be numbers.");
+                        return InterpretResult.InterpretRuntimeError;
+                    }
+                    try self.binaryLess();
+                },
                 // else => {
                 //     return InterpretResult.InterpretCompileError;
                 // },
@@ -336,27 +366,27 @@ test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
 
     try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-    const constant3 = try chunk.addConstant(3);
-    try chunk.write(constant3, fakeLineNumber);
+    // try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    // const constant3 = try chunk.addConstant(3);
+    // try chunk.write(constant3, fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpMultiply), fakeLineNumber);
+    // try chunk.write(@enumToInt(OpCode.OpMultiply), fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-    const constant4 = try chunk.addConstant(4);
-    try chunk.write(constant4, fakeLineNumber);
+    // try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    // const constant4 = try chunk.addConstant(4);
+    // try chunk.write(constant4, fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpSubtract), fakeLineNumber);
+    // try chunk.write(@enumToInt(OpCode.OpSubtract), fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-    const constant5 = try chunk.addConstant(5);
-    try chunk.write(constant5, fakeLineNumber);
+    // try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    // const constant5 = try chunk.addConstant(5);
+    // try chunk.write(constant5, fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpNegate), fakeLineNumber);
+    // try chunk.write(@enumToInt(OpCode.OpNegate), fakeLineNumber);
 
     // TODO(bug): Why does 'divide' specifically crash here?
     // try chunk.write(@enumToInt(OpCode.OpDivide), fakeLineNumber);
-    try chunk.write(@enumToInt(OpCode.OpMultiply), fakeLineNumber);
+    // try chunk.write(@enumToInt(OpCode.OpMultiply), fakeLineNumber);
 
     try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
 
