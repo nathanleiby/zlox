@@ -12,4 +12,4 @@ jobs:
         with:
           version: 0.8.1
       - name: Run tests
-        run: zig test vm.zig
+        run: ls *.zig | xargs -L 1 zig test
