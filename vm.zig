@@ -154,6 +154,7 @@ pub const VM = struct {
 
                 OpCode.OpNegate => {
                     if (!(@as(Value, self.peek(0)) == Value.number)) {
+                        self.runtimeError("Negation operand must be a number.");
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.stack.append(Value{.number = -self.stack.pop().number});
