@@ -12,6 +12,6 @@ jobs:
         with:
           version: 0.8.1
       - name: Run tests
-        run: ls *.zig | xargs -L 1 zig test
+        run: ./test.sh
       - name: Run example lox files
-        run: ls examples/*.lox | xargs -L 1 zig run main.zig --
+        run: ./examples.sh
