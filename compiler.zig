@@ -297,7 +297,6 @@ fn advance() void {
 
     while (true) {
         parser.current = scanToken();
-        // print("current: {s}", .{parser.current});
         if (parser.current.ttype != TokenType.ERROR) break;
 
         errorAtCurrent("advance() error"); // TODO
