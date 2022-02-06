@@ -1,3 +1,5 @@
-- [ ] Refactor the Value union to use more elegant code (see Zig docs for unions.. they can infer type, have methods on struct)
+- [ ] `value.zig`: Refactor the Value union to use more elegant code (see Zig docs for unions.. they can infer type, have methods on struct)
+- [ ] `compiler.zig`: Refactor binary operations
+- [ ] Ensure `main.zig` is capable of reading files. It seems like the REPL works but not file execution.
 - [ ] (someday) code profiling / speed
     - could profile some of the open-source impls too, for comparison

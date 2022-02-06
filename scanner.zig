@@ -23,31 +23,31 @@ pub const Token = struct {
     line: usize,
 };
 
-fn scanTokens() void {
-    var line: usize = 0;
-    while (true) {
-        const token: Token = scanToken();
+// fn scanTokens() void {
+//     var line: usize = 0;
+//     while (true) {
+//         const token: Token = scanToken();
 
-        if (DEBUG_PRINT_TOKENS) {
-            if (token.line != line) {
-                print("line={d} ", .{token.line});
-                //   print("%4d ", .{token.line});
-                line = token.line;
-            } else {
-                print("   | ", .{});
-            }
+//         if (DEBUG_PRINT_TOKENS) {
+//             if (token.line != line) {
+//                 print("line={d} ", .{token.line});
+//                 //   print("%4d ", .{token.line});
+//                 line = token.line;
+//             } else {
+//                 print("   | ", .{});
+//             }
 
-            if (token.start + token.length < scanner.source.len) {
-                print("ttype={d} '{s}'\n", .{ token.ttype, scanner.source[token.start .. token.start + token.length] });
-            } else {
-                print("ttype={d}\n", .{token.ttype});
-            }
-        }
+//             if (token.start + token.length < scanner.source.len) {
+//                 print("ttype={d} '{s}'\n", .{ token.ttype, scanner.source[token.start .. token.start + token.length] });
+//             } else {
+//                 print("ttype={d}\n", .{token.ttype});
+//             }
+//         }
 
-        // TODO: we don't yet emit this?
-        if (token.ttype == TokenType.EOF) break;
-    }
-}
+//         // TODO: we don't yet emit this?
+//         if (token.ttype == TokenType.EOF) break;
+//     }
+// }
 
 fn skipWhitespace() void {
     while (!isAtEnd()) {
@@ -198,7 +198,7 @@ fn identifierType() TokenType {
                         return checkKeyword(2, 2, "is", TokenType.FALSE);
                     },
                     'r' => {
-                        return checkKeyword(2, 2, "ue", TokenType.FOR);
+                        return checkKeyword(2, 2, "ue", TokenType.TRUE);
                     },
                     else => {},
                 }
@@ -216,9 +216,9 @@ fn identifierType() TokenType {
     return TokenType.IDENTIFIER;
 }
 
-fn checkKeyword(start: usize, length: usize, rest: []const u8, ttype: TokenType) TokenType {
-    if (scanner.current - scanner.start == start + length and "foo" == "bar") {
-        // source[scanner.start + start..])
+fn checkKeyword(offset: usize, length: usize, rest: []const u8, ttype: TokenType) TokenType {
+    const first = scanner.start + offset;
+    if (std.mem.eql(u8, scanner.source[first .. first + length], rest)) {
         return ttype;
     }
 

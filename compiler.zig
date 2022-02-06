@@ -112,9 +112,13 @@ pub fn compile(source: []u8, chunk: *Chunk) !bool {
     parser.hadError = false;
     parser.panicMode = false;
 
+    // scan tokens
     advance();
-    expression(); // TODO
-    consume(TokenType.EOF, "Expect end of expression.");
+    // convert tokens to expression
+    expression();
+
+    // TODO: consume more than one expression, then check for EOF
+    // consume(TokenType.EOF, "Expect end of expression.");
     endCompiler();
     return !parser.hadError;
 }
@@ -124,7 +128,6 @@ fn expression() void {
 }
 
 fn literal() void {
-    print("literal", .{});
     switch (parser.previous.ttype) {
         TokenType.FALSE => {
             emitByte(@enumToInt(OpCode.OpFalse));
@@ -223,8 +226,9 @@ fn getRule(ttype: TokenType) *ParseRule {
 
 fn parsePrecedence(precedence: Precedence) void {
     advance();
-    const prefixRule = getRule(parser.previous.ttype).prefix;
-    print("prefixRule: {s}", .{prefixRule}); // TODO: this is weird but makes things work. ZIGGGGGG
+    const rule = getRule(parser.previous.ttype);
+    const prefixRule = rule.prefix;
+    print("prefixRule {s}: {s}\n", .{ parser.previous.ttype, rule }); // TODO: this is weird but makes things work. ZIGGGGGG
     if (prefixRule == undefined) {
         err("Expect expression.");
         return;
@@ -293,9 +297,10 @@ fn advance() void {
 
     while (true) {
         parser.current = scanToken();
+        // print("current: {s}", .{parser.current});
         if (parser.current.ttype != TokenType.ERROR) break;
 
-        errorAtCurrent("advanceCompiler error"); // TODO
+        errorAtCurrent("advance() error"); // TODO
     }
 }
 
