@@ -34,29 +34,6 @@ IDENTIFIER, STRING, NUMBER,
 // Keywords.
 AND, CLASS, ELSE, FALSE, FOR, FUN, IF, NIL, OR, PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE, ERROR, EOF };
 
-// TODO: move this into VM
-pub fn interpret(source: []u8) !InterpretResult {
-    var chunk = Chunk{
-        .code = &std.ArrayList(usize).init(allocator),
-        .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(Value).init(allocator),
-    };
-    defer chunk.free();
-
-    const compileSuccess = try compiler.compile(allocator, source, &chunk);
-    if (!compileSuccess) {
-        return InterpretResult.InterpretCompileError;
-    }
-
-    const vm = VM{
-        .chunk = chunk,
-        .stack = &std.ArrayList(Value).init(allocator),
-    };
-
-    const result = try vm.run();
-    return result;
-}
-
 pub const VM = struct {
     chunk: Chunk,
     stack: *std.ArrayList(Value),
@@ -70,10 +47,26 @@ pub const VM = struct {
         self.stack.deinit();
     }
 
-    pub fn interpret(self: VM, _: *Chunk) !InterpretResult {
-        // var foo = c;
-        // self.ip = c.code;
-        return self.run();
+    pub fn interpret(source: []u8) !InterpretResult {
+        var chunk = Chunk{
+            .code = &std.ArrayList(usize).init(allocator),
+            .lines = &std.ArrayList(usize).init(allocator),
+            .values = &std.ArrayList(Value).init(allocator),
+        };
+        defer chunk.free();
+
+        const compileSuccess = try compiler.compile(allocator, source, &chunk);
+        if (!compileSuccess) {
+            return InterpretResult.InterpretCompileError;
+        }
+
+        const vm = VM{
+            .chunk = chunk,
+            .stack = &std.ArrayList(Value).init(allocator),
+        };
+
+        const result = try vm.run();
+        return result;
     }
 
     fn peek(self: VM, distance: usize) Value {
@@ -201,7 +194,7 @@ test "virtual machine can negate a value" {
     var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(f64).init(allocator),
+        .values = &std.ArrayList(Value).init(allocator),
     };
 
     // free
@@ -209,7 +202,7 @@ test "virtual machine can negate a value" {
 
     // write
     try chunk.write(@enumToInt(OpCode.OpConstant), 123);
-    const constant = try chunk.addConstant(1.2);
+    const constant = try chunk.addConstant(Value{ .number = 1.2 });
     try chunk.write(constant, 1);
 
     try chunk.write(@enumToInt(OpCode.OpNegate), 123);
@@ -224,7 +217,7 @@ test "virtual machine can negate a value" {
         .chunk = chunk,
         .stack = &std.ArrayList(Value).init(allocator),
     };
-    const result = try vm.interpret(&chunk);
+    const result = try vm.run();
     print("Interpret result: {s}\n", .{result});
     try expect(result == InterpretResult.InterpretOk);
 }
@@ -235,7 +228,7 @@ test "virtual machine can do some binary ops (add and divide)" {
     var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(f64).init(allocator),
+        .values = &std.ArrayList(Value).init(allocator),
     };
 
     const fakeLineNumber = 123;
@@ -245,17 +238,17 @@ test "virtual machine can do some binary ops (add and divide)" {
 
     // write
     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-    const constant = try chunk.addConstant(1.2);
+    const constant = try chunk.addConstant(Value{ .number = 1.2 });
     try chunk.write(constant, fakeLineNumber);
 
     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-    const constant2 = try chunk.addConstant(3.4);
+    const constant2 = try chunk.addConstant(Value{ .number = 3.4 });
     try chunk.write(constant2, fakeLineNumber);
 
     try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
 
     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-    const constant3 = try chunk.addConstant(5.6);
+    const constant3 = try chunk.addConstant(Value{ .number = 5.6 });
     try chunk.write(constant3, 1);
 
     try chunk.write(@enumToInt(OpCode.OpDivide), fakeLineNumber);
@@ -270,7 +263,7 @@ test "virtual machine can do some binary ops (add and divide)" {
         .chunk = chunk,
         .stack = &std.ArrayList(Value).init(allocator),
     };
-    const result = try vm.interpret(&chunk);
+    const result = try vm.run();
     print("Interpret result: {s}\n", .{result});
     try expect(result == InterpretResult.InterpretOk);
 }
@@ -281,11 +274,7 @@ test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
 
     print("\n\n", .{}); // make space for test runner output
 
-    var chunk = Chunk{
-        .code = &std.ArrayList(usize).init(allocator),
-        .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(f64).init(allocator),
-    };
+    var chunk = Chunk{ .code = &std.ArrayList(usize).init(allocator), .lines = &std.ArrayList(usize).init(allocator), .values = &std.ArrayList(Value).init(allocator) };
 
     const fakeLineNumber = 123;
 
@@ -294,11 +283,11 @@ test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
 
     // write
     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-    const constant = try chunk.addConstant(1);
+    const constant = try chunk.addConstant(Value{ .number = 1 });
     try chunk.write(constant, fakeLineNumber);
 
     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-    const constant2 = try chunk.addConstant(2);
+    const constant2 = try chunk.addConstant(Value{ .number = 2 });
     try chunk.write(constant2, fakeLineNumber);
 
     try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
@@ -335,7 +324,7 @@ test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
         .chunk = chunk,
         .stack = &std.ArrayList(Value).init(allocator),
     };
-    const result = try vm.interpret(&chunk);
+    const result = try vm.run();
     print("Interpret result: {s}\n", .{result});
     try expect(result == InterpretResult.InterpretOk);
 }

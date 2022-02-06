@@ -139,7 +139,7 @@ test "chunk" {
     var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(f64).init(allocator),
+        .values = &std.ArrayList(Value).init(allocator),
     };
 
     const fakeLineNumber = 123;
