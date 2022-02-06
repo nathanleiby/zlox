@@ -4,6 +4,8 @@ const print = std.debug.print;
 const allocator = std.heap.page_allocator;
 const expect = std.testing.expect;
 
+const Value = @import("./value.zig").Value;
+
 pub const OpCode = enum(usize) {
     OpReturn,
     OpConstant,
@@ -26,7 +28,7 @@ const lineType = usize;
 pub const Chunk = struct {
     code: *std.ArrayList(usize),
     lines: *std.ArrayList(lineType), // TODO : i32 before, usize now?
-    values: *std.ArrayList(f64),
+    values: *std.ArrayList(Value),
 
     pub fn free(self: Chunk) void {
         self.code.deinit();
@@ -39,7 +41,7 @@ pub const Chunk = struct {
         try self.lines.append(line);
     }
 
-    pub fn addConstant(self: Chunk, value: f64) !usize {
+    pub fn addConstant(self: Chunk, value: Value) !usize {
         try self.values.append(value);
         return self.values.items.len - 1;
     }
@@ -147,7 +149,7 @@ test "chunk" {
 
     // write
     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-    const constant = try chunk.addConstant(1.2);
+    const constant = try chunk.addConstant(Value{ .number = 1.2 });
     try chunk.write(constant, fakeLineNumber);
 
     try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);

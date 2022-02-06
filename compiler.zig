@@ -13,8 +13,18 @@ const Token = @import("./scanner.zig").Token;
 const TokenType = @import("./scanner.zig").TokenType;
 
 const Value = @import("./value.zig").Value;
+const Obj = @import("./value.zig").Obj;
+const ObjString = @import("./value.zig").ObjString;
+
+const copyString = @import("./object.zig").copyString;
+const Allocator = std.mem.Allocator;
 
 const MAX_CONSTANTS = 256;
+
+var allocator: *Allocator = undefined;
+pub fn setAllocator(a: *Allocator) void {
+    allocator = a;
+}
 
 // Debugging flags
 const DEBUG_PRINT_CODE = true; // TODO: try out comptime
@@ -63,7 +73,7 @@ fn initRules() void {
     rules[@enumToInt(TokenType.LESS)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_COMPARISON };
     rules[@enumToInt(TokenType.LESS_EQUAL)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_COMPARISON };
     rules[@enumToInt(TokenType.IDENTIFIER)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.STRING)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.STRING)] = ParseRule{ .prefix = string, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.NUMBER)] = ParseRule{ .prefix = number, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.AND)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.CLASS)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
@@ -102,9 +112,10 @@ var parser = Parser{
     .panicMode = false,
 };
 
-pub fn compile(source: []u8, chunk: *Chunk) !bool {
+pub fn compile(a: *Allocator, source: []u8, chunk: *Chunk) !bool {
     // startup -- could be comptime TODO
     initRules();
+    setAllocator(a);
 
     initScanner(source);
     compilingChunk = chunk;
@@ -155,6 +166,14 @@ fn grouping() void {
     // we assume the initial '(' has already been consumed.
     expression();
     consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
+}
+
+fn string() void {
+    // extract the string's value, trimming the surrounding quotes
+    const chars = getScanner().source[parser.previous.start + 1 .. parser.previous.length - 2];
+    var s = copyString(allocator, chars);
+    const v = Value{ .obj = @ptrCast(*Obj, &s) };
+    emitConstant(v);
 }
 
 fn unary() void {
@@ -262,7 +281,7 @@ fn emitConstant(value: Value) void {
 }
 
 fn makeConstant(value: Value) u8 {
-    const constIdx = currentChunk().addConstant(value.number) catch {
+    const constIdx = currentChunk().addConstant(value) catch {
         err("Failed to add constant.");
         return 0;
     };

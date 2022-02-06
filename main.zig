@@ -12,7 +12,7 @@ pub fn main() !void {
     var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(f64).init(allocator),
+        .values = &std.ArrayList(Value).init(allocator),
     };
     const vm = interpreter.VM{
         .chunk = chunk,

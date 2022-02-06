@@ -39,11 +39,11 @@ pub fn interpret(source: []u8) !InterpretResult {
     var chunk = Chunk{
         .code = &std.ArrayList(usize).init(allocator),
         .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(f64).init(allocator),
+        .values = &std.ArrayList(Value).init(allocator),
     };
     defer chunk.free();
 
-    const compileSuccess = try compiler.compile(source, &chunk);
+    const compileSuccess = try compiler.compile(allocator, source, &chunk);
     if (!compileSuccess) {
         return InterpretResult.InterpretCompileError;
     }
@@ -163,7 +163,7 @@ pub const VM = struct {
                     const constantIdx = self.chunk.code.items[ip];
                     ip += 1;
                     const constant = self.chunk.values.items[constantIdx];
-                    try self.stack.append(Value{ .number = constant });
+                    try self.stack.append(constant);
                 },
                 OpCode.OpFalse => {
                     try self.stack.append(Value{ .boolean = false });

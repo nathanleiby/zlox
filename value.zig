@@ -49,7 +49,8 @@ pub const Value = union(ValueType) {
     }
 
     fn asCString(self: Value) []const u8 {
-        return self.asString().*.chars;
+        const string = self.asString().*;
+        return string.chars;
     }
 };
 
@@ -76,9 +77,9 @@ pub const Obj = struct {
     chars: []const u8 = undefined,
 };
 
-const ObjString = struct {
+pub const ObjString = struct {
     obj: Obj,
-    length: i64,
+    length: usize,
     chars: []const u8,
 };
 
