@@ -88,40 +88,19 @@ pub const VM = struct {
         return true;
     }
 
-    fn binaryAdd(self: VM) !void {
+    fn binaryOp(self: VM, op: OpCode) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
-        try self.stack.append(Value{ .number = a.number + b.number });
-    }
 
-    fn binarySubtract(self: VM) !void {
-        const b = self.stack.pop();
-        const a = self.stack.pop();
-        try self.stack.append(Value{ .number = a.number - b.number });
-    }
-
-    fn binaryMultiply(self: VM) !void {
-        const b = self.stack.pop();
-        const a = self.stack.pop();
-        try self.stack.append(Value{ .number = a.number * b.number });
-    }
-
-    fn binaryDivide(self: VM) !void {
-        const b = self.stack.pop();
-        const a = self.stack.pop();
-        try self.stack.append(Value{ .number = a.number / b.number });
-    }
-
-    fn binaryGreater(self: VM) !void {
-        const b = self.stack.pop();
-        const a = self.stack.pop();
-        try self.stack.append(Value{ .boolean = a.number > b.number });
-    }
-
-    fn binaryLess(self: VM) !void {
-        const b = self.stack.pop();
-        const a = self.stack.pop();
-        try self.stack.append(Value{ .boolean = a.number < b.number });
+        switch (op) {
+            OpCode.OpAdd => try self.stack.append(Value{ .number = a.number + b.number }),
+            OpCode.OpSubtract => try self.stack.append(Value{ .number = a.number - b.number }),
+            OpCode.OpMultiply => try self.stack.append(Value{ .number = a.number * b.number }),
+            OpCode.OpDivide => try self.stack.append(Value{ .number = a.number / b.number }),
+            OpCode.OpGreater => try self.stack.append(Value{ .boolean = a.number > b.number }),
+            OpCode.OpLess => try self.stack.append(Value{ .boolean = a.number < b.number }),
+            else => unreachable,
+        }
     }
 
     // TODO: Find where this was defined in book
@@ -173,7 +152,6 @@ pub const VM = struct {
                     print("\n", .{});
                     return InterpretResult.InterpretOk;
                 },
-
                 OpCode.OpNegate => {
                     if (!(@as(Value, self.peek(0)) == Value.number)) {
                         self.runtimeError("Negation operand must be a number.");
@@ -196,29 +174,11 @@ pub const VM = struct {
                 OpCode.OpNil => {
                     try self.stack.append(Value{ .nil = undefined });
                 },
-                OpCode.OpAdd => {
+                OpCode.OpAdd, OpCode.OpSubtract, OpCode.OpMultiply, OpCode.OpDivide, OpCode.OpGreater, OpCode.OpLess => {
                     if (!self.isValidBinaryOp()) {
                         return InterpretResult.InterpretRuntimeError;
                     }
-                    try self.binaryAdd();
-                },
-                OpCode.OpSubtract => {
-                    if (!self.isValidBinaryOp()) {
-                        return InterpretResult.InterpretRuntimeError;
-                    }
-                    try self.binarySubtract();
-                },
-                OpCode.OpMultiply => {
-                    if (!self.isValidBinaryOp()) {
-                        return InterpretResult.InterpretRuntimeError;
-                    }
-                    try self.binaryMultiply();
-                },
-                OpCode.OpDivide => {
-                    if (!self.isValidBinaryOp()) {
-                        return InterpretResult.InterpretRuntimeError;
-                    }
-                    try self.binaryDivide();
+                    try self.binaryOp(instruction);
                 },
                 OpCode.OpNot => {
                     try self.stack.append(Value{ .boolean = self.stack.pop().isFalsey() });
@@ -228,21 +188,6 @@ pub const VM = struct {
                     const a = self.stack.pop();
                     try self.stack.append(Value{ .boolean = valuesEqual(a, b) });
                 },
-                OpCode.OpGreater => {
-                    if (!self.isValidBinaryOp()) {
-                        return InterpretResult.InterpretRuntimeError;
-                    }
-                    try self.binaryGreater();
-                },
-                OpCode.OpLess => {
-                    if (!self.isValidBinaryOp()) {
-                        return InterpretResult.InterpretRuntimeError;
-                    }
-                    try self.binaryLess();
-                },
-                // else => {
-                //     return InterpretResult.InterpretCompileError;
-                // },
             }
         }
 
