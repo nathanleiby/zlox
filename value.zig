@@ -19,6 +19,22 @@ pub const Value = union(ValueType) {
     nil: void,
     obj: *Obj, // pointer to an obj
 
+    pub fn isNumber(self: Value) bool {
+        return (@as(Value, self) == Value.number);
+    }
+
+    fn isNil(self: Value) bool {
+        return (@as(Value, self) == Value.nil);
+    }
+
+    fn isBoolean(self: Value) bool {
+        return (@as(Value, self) == Value.boolean);
+    }
+
+    pub fn isFalsey(self: Value) bool {
+        return self.isNil() or (self.isBoolean() and !self.boolean);
+    }
+
     fn isObj(self: Value) bool {
         return (@as(Value, self) == Value.obj);
     }
@@ -78,22 +94,6 @@ const ObjString = struct {
 // pub fn Nil() Value {
 //     return Value{.nil = undefined};
 // }
-
-pub fn IsNumber(v: Value) bool {
-    return (@as(Value, v) == Value.number);
-}
-
-pub fn IsNil(v: Value) bool {
-    return (@as(Value, v) == Value.nil);
-}
-
-pub fn IsBoolean(v: Value) bool {
-    return (@as(Value, v) == Value.boolean);
-}
-
-pub fn IsFalsey(v: Value) bool {
-    return IsNil(v) or (IsBoolean(v) and !v.boolean);
-}
 
 pub fn valuesEqual(a: Value, b: Value) bool {
     // values must be of same type before they can be equal

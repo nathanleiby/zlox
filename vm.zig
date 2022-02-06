@@ -11,8 +11,6 @@ const OpCode = @import("./chunk.zig").OpCode;
 const Value = @import("./value.zig").Value;
 const valuesEqual = @import("./value.zig").valuesEqual;
 const printValue = @import("./value.zig").printValue;
-const IsNumber = @import("./value.zig").IsNumber;
-const IsFalsey = @import("./value.zig").IsFalsey;
 
 const compiler = @import("./compiler.zig");
 
@@ -80,6 +78,14 @@ pub const VM = struct {
 
     fn peek(self: VM, distance: usize) Value {
         return self.stack.items[self.stack.items.len - 1 - distance];
+    }
+
+    fn isValidBinaryOp(self: VM) bool {
+        if (!(self.peek(0).isNumber() and self.peek(1).isNumber())) {
+            self.runtimeError("Operands must be numbers.");
+            return false;
+        }
+        return true;
     }
 
     fn binaryAdd(self: VM) !void {
@@ -191,43 +197,31 @@ pub const VM = struct {
                     try self.stack.append(Value{ .nil = undefined });
                 },
                 OpCode.OpAdd => {
-                    if (!(IsNumber(self.peek(0)) and
-                        IsNumber(self.peek(1))))
-                    {
-                        self.runtimeError("Operands must be numbers.");
+                    if (!self.isValidBinaryOp()) {
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binaryAdd();
                 },
                 OpCode.OpSubtract => {
-                    if (!(IsNumber(self.peek(0)) and
-                        IsNumber(self.peek(1))))
-                    {
-                        self.runtimeError("Operands must be numbers.");
+                    if (!self.isValidBinaryOp()) {
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binarySubtract();
                 },
                 OpCode.OpMultiply => {
-                    if (!(IsNumber(self.peek(0)) and
-                        IsNumber(self.peek(1))))
-                    {
-                        self.runtimeError("Operands must be numbers.");
+                    if (!self.isValidBinaryOp()) {
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binaryMultiply();
                 },
                 OpCode.OpDivide => {
-                    if (!(IsNumber(self.peek(0)) and
-                        IsNumber(self.peek(1))))
-                    {
-                        self.runtimeError("Operands must be numbers.");
+                    if (!self.isValidBinaryOp()) {
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binaryDivide();
                 },
                 OpCode.OpNot => {
-                    try self.stack.append(Value{ .boolean = IsFalsey(self.stack.pop()) });
+                    try self.stack.append(Value{ .boolean = self.stack.pop().isFalsey() });
                 },
                 OpCode.OpEqual => {
                     const b = self.stack.pop();
@@ -235,15 +229,13 @@ pub const VM = struct {
                     try self.stack.append(Value{ .boolean = valuesEqual(a, b) });
                 },
                 OpCode.OpGreater => {
-                    if (!(IsNumber(self.peek(0)) and IsNumber(self.peek(1)))) {
-                        self.runtimeError("Operands must be numbers.");
+                    if (!self.isValidBinaryOp()) {
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binaryGreater();
                 },
                 OpCode.OpLess => {
-                    if (!(IsNumber(self.peek(0)) and IsNumber(self.peek(1)))) {
-                        self.runtimeError("Operands must be numbers.");
+                    if (!self.isValidBinaryOp()) {
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.binaryLess();
