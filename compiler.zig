@@ -21,25 +21,27 @@ const Allocator = std.mem.Allocator;
 
 const MAX_CONSTANTS = 256;
 
-var allocator: *Allocator = undefined;
-pub fn setAllocator(a: *Allocator) void {
+var allocator: Allocator = undefined;
+pub fn setAllocator(a: Allocator) void {
     allocator = a;
 }
 
 // Debugging flags
 const DEBUG_PRINT_CODE = true; // TODO: try out comptime
 
-const Precedence = enum { PREC_NONE, // base case
-PREC_ASSIGNMENT, // =
-PREC_OR, // or
-PREC_AND, // and
-PREC_EQUALITY, // == !=
-PREC_COMPARISON, // < > <= >=
-PREC_TERM, // + -
-PREC_FACTOR, // * /
-PREC_UNARY, // ! -
-PREC_CALL, // . ()
-PREC_PRIMARY };
+const Precedence = enum {
+    PREC_NONE, // base case
+    PREC_ASSIGNMENT, // =
+    PREC_OR, // or
+    PREC_AND, // and
+    PREC_EQUALITY, // == !=
+    PREC_COMPARISON, // < > <= >=
+    PREC_TERM, // + -
+    PREC_FACTOR, // * /
+    PREC_UNARY, // ! -
+    PREC_CALL, // . ()
+    PREC_PRIMARY,
+};
 
 const ParseRule = struct {
     prefix: ParseFn,
@@ -112,7 +114,7 @@ var parser = Parser{
     .panicMode = false,
 };
 
-pub fn compile(a: *Allocator, source: []u8, chunk: *const Chunk) !bool {
+pub fn compile(a: Allocator, source: []u8, chunk: *Chunk) !bool {
     // startup -- could be comptime TODO
     initRules();
     setAllocator(a);
@@ -261,9 +263,9 @@ fn parsePrecedence(precedence: Precedence) void {
     }
 }
 
-var compilingChunk: *const Chunk = undefined;
+var compilingChunk: *Chunk = undefined;
 
-fn currentChunk() *const Chunk {
+fn currentChunk() *Chunk {
     return compilingChunk;
 }
 

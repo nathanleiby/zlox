@@ -10,7 +10,7 @@ jobs:
       - name: Install Zig
         uses: goto-bus-stop/setup-zig@default
         with:
-          version: 0.8.1
+          version: 0.9.0
       - name: Run tests
         run: ./test.sh
       - name: Run example lox files

@@ -13,9 +13,9 @@ pub fn main() !void {
     // parse args
     var arena = std.heap.ArenaAllocator.init(allocator);
     defer arena.deinit();
-    const ally = &arena.allocator;
+    const ally = arena.allocator();
 
-    const stdout = std.io.getStdOut().writer();
+    // const stdout = std.io.getStdOut().writer();
 
     const args = try std.process.argsAlloc(ally);
     if (args.len > 2) {
@@ -38,16 +38,16 @@ fn runFile(path: []u8) !void {
 
     const source: []u8 = try file.readToEndAlloc(allocator, maxFileSize);
 
-    const vm = VM.init(allocator);
+    var vm = try VM.init(allocator);
     defer vm.free();
-    const result: InterpretResult = try vm.interpret(allocator, source);
+    const result: InterpretResult = try vm.interpret(source);
 
     if (result == InterpretResult.InterpretCompileError) std.os.exit(65);
     if (result == InterpretResult.InterpretRuntimeError) std.os.exit(70);
 }
 
 fn repl() !void {
-    const vm = VM.init(allocator);
+    var vm = try VM.init(allocator);
     defer vm.free();
 
     const line = try allocator.alloc(u8, 1024);
@@ -56,7 +56,7 @@ fn repl() !void {
         const stdin = std.io.getStdIn().reader();
         const optional_s = try stdin.readUntilDelimiterOrEof(line[0..], '\n'); // TODO: break if error
         if (optional_s) |s| {
-            _ = try vm.interpret(allocator, s);
+            _ = try vm.interpret(s);
             print("\n", .{});
         } else {
             break;

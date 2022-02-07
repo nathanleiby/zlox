@@ -23,7 +23,7 @@ const allocate = @import("./memory.zig").allocate;
 //     return string;
 // }
 
-fn allocateString(allocator: *Allocator, chars: []const u8, length: usize) !*ObjString {
+fn allocateString(allocator: Allocator, chars: []const u8, length: usize) !*ObjString {
     var string: *ObjString = try allocator.create(ObjString);
     string.obj.type_ = ObjType.string;
     string.length = length;
@@ -31,13 +31,13 @@ fn allocateString(allocator: *Allocator, chars: []const u8, length: usize) !*Obj
     return string;
 }
 
-pub fn copyString(allocator: *Allocator, chars: []const u8) !*ObjString {
+pub fn copyString(allocator: Allocator, chars: []const u8) !*ObjString {
     var heapChars = try allocator.alloc(u8, chars.len);
     std.mem.copy(u8, heapChars, chars);
     return try allocateString(allocator, heapChars, chars.len);
 }
 
-fn concat(allocator: *Allocator, a: []const u8, b: []const u8) ![]u8 {
+fn concat(allocator: Allocator, a: []const u8, b: []const u8) ![]u8 {
     const result = try allocator.alloc(u8, a.len + b.len);
     std.mem.copy(u8, result, a);
     std.mem.copy(u8, result[a.len..], b);
@@ -45,8 +45,11 @@ fn concat(allocator: *Allocator, a: []const u8, b: []const u8) ![]u8 {
 }
 
 test "Copy a string" {
-    var buffer: [100]u8 = undefined;
-    const allocator = &std.heap.FixedBufferAllocator.init(&buffer).allocator;
+    const allocator = std.testing.allocator;
     const result = try copyString(allocator, "foo");
+    defer {
+        allocator.free(result.chars);
+        allocator.destroy(result);
+    }
     try expect(std.mem.eql(u8, "foo", result.chars));
 }
