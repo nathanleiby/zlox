@@ -10,7 +10,7 @@ pub fn allocate(allocator: *Allocator, comptime T: type, count: usize) ![]void {
     return try reallocate(allocator, undefined, 0, @sizeOf(T) * count);
 }
 
-fn reallocate(allocator: *Allocator, pointer: *void, oldSize: usize, newSize: usize) ![]void {
+fn reallocate(allocator: *Allocator, pointer: *void, _: usize, newSize: usize) ![]void {
     return try allocator.realloc(pointer, newSize);
 }
 

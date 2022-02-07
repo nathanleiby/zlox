@@ -120,9 +120,9 @@ pub fn printValue(value: Value) void {
     }
 }
 
-fn printObj(obj: *Obj) void {
+fn printObj(_: *Obj) void {
     // TODO
-    // print("obj:{*}", obj);
+    // print("obj:{any}", obj);
 
     //     switch (OBJ_TYPE(value)) {
     //     case OBJ_STRING:

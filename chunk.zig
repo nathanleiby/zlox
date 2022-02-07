@@ -1,7 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
+const Allocator = std.mem.Allocator;
 
-const allocator = std.heap.page_allocator;
 const expect = std.testing.expect;
 
 const Value = @import("./value.zig").Value;
@@ -23,25 +23,64 @@ pub const OpCode = enum(usize) {
     OpLess,
 };
 
-const lineType = usize;
+// fn makeChunk(allocator: Allocator) !*Chunk {
+//     const c: *Chunk = try allocator.create(Chunk);
+//     c.*.code = &std.ArrayList(usize).init(allocator);
+//     c.*.lines = &std.ArrayList(usize).init(allocator);
+//     c.*.values = &std.ArrayList(Value).init(allocator);
+//     return c;
+// }
+
+// pub const ChunkV2 = struct {
+//     code: std.ArrayList(usize),
+//     lines: std.ArrayList(usize),
+//     values: std.ArrayList(Value),
+
+//     pub fn init(allocator: Allocator) !*ChunkV2 {
+//         const c: *ChunkV2 = try allocator.create(ChunkV2);
+//         c.code = std.ArrayList(usize).init(allocator);
+//         c.lines = std.ArrayList(usize).init(allocator);
+//         c.values = std.ArrayList(Value).init(allocator);
+//         return c;
+//     }
+// };
+
+// test "chunk2" {
+//     const allocator = std.testing.allocator;
+//     const out = try ChunkV2.init(allocator);
+//     try out.code.append(1);
+//     try out.code.append(2);
+//     print("out: {*}\n", .{out});
+//     // print("{any}\n", .{slice});
+//     out.code.deinit();
+//     allocator.destroy(out);
+// }
 
 pub const Chunk = struct {
-    code: *std.ArrayList(usize),
-    lines: *std.ArrayList(lineType), // TODO : i32 before, usize now?
-    values: *std.ArrayList(Value),
+    code: std.ArrayList(usize),
+    lines: std.ArrayList(usize),
+    values: std.ArrayList(Value),
 
-    pub fn free(self: Chunk) void {
+    pub fn init(allocator: Allocator) !*Chunk {
+        const c: *Chunk = try allocator.create(Chunk);
+        c.code = std.ArrayList(usize).init(allocator);
+        c.lines = std.ArrayList(usize).init(allocator);
+        c.values = std.ArrayList(Value).init(allocator);
+        return c;
+    }
+
+    pub fn free(self: *Chunk) void {
         self.code.deinit();
         self.lines.deinit();
         self.values.deinit();
     }
 
-    pub fn write(self: Chunk, byte: usize, line: lineType) !void {
+    pub fn write(self: *Chunk, byte: usize, line: usize) !void {
         try self.code.append(byte);
         try self.lines.append(line);
     }
 
-    pub fn addConstant(self: Chunk, value: Value) !usize {
+    pub fn addConstant(self: *Chunk, value: Value) !usize {
         try self.values.append(value);
         return self.values.items.len - 1;
     }
@@ -56,7 +95,7 @@ pub fn disassembleChunk(chunk: Chunk, name: []const u8) void {
     }
 }
 
-fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
+pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
     const byte = chunk.code.items[offset];
     print("{:04} ", .{offset});
     // line
@@ -136,18 +175,17 @@ fn simpleInstruction(name: []const u8, offset: usize) usize {
 }
 
 test "chunk" {
-    var chunk = Chunk{
-        .code = &std.ArrayList(usize).init(allocator),
-        .lines = &std.ArrayList(usize).init(allocator),
-        .values = &std.ArrayList(Value).init(allocator),
-    };
+    const allocator = std.testing.allocator;
 
-    const fakeLineNumber = 123;
-
-    // free
-    defer chunk.free();
+    var chunk = try Chunk.init(allocator);
+    defer {
+        // cleanup
+        chunk.free();
+        allocator.destroy(chunk);
+    }
 
     // write
+    const fakeLineNumber = 123;
     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
     const constant = try chunk.addConstant(Value{ .number = 1.2 });
     try chunk.write(constant, fakeLineNumber);
@@ -164,5 +202,5 @@ test "chunk" {
     try chunk.write(@enumToInt(OpCode.OpNil), fakeLineNumber);
 
     // disassemble
-    disassembleChunk(chunk, "chunk");
+    disassembleChunk(chunk.*, "chunk");
 }

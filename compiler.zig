@@ -112,7 +112,7 @@ var parser = Parser{
     .panicMode = false,
 };
 
-pub fn compile(a: *Allocator, source: []u8, chunk: *Chunk) !bool {
+pub fn compile(a: *Allocator, source: []u8, chunk: *const Chunk) !bool {
     // startup -- could be comptime TODO
     initRules();
     setAllocator(a);
@@ -261,9 +261,9 @@ fn parsePrecedence(precedence: Precedence) void {
     }
 }
 
-var compilingChunk: *Chunk = undefined;
+var compilingChunk: *const Chunk = undefined;
 
-fn currentChunk() *Chunk {
+fn currentChunk() *const Chunk {
     return compilingChunk;
 }
 

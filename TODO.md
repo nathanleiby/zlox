@@ -1,2 +1,7 @@
+- [ ] TODO: Look at a real implementation of VM and Chunk in someone's Zig. wat am i doing wrong with allocate :D
+- [ ] Move to zig 0.9
+  - embrace allocgate e.g. `Allocator` vs `*Allocator`
+    - https://www.forrestthewoods.com/blog/failing-to-learn-zig-via-advent-of-code/
+    - https://pithlessly.github.io/allocgate.html
 - [ ] (someday) code profiling / speed
-    - could profile some of the open-source impls too, for comparison
+  - could profile some of the open-source impls too, for comparison
