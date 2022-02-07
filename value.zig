@@ -43,6 +43,10 @@ pub const Value = union(ValueType) {
         return self.isObj() and self.obj.*.type_ == t;
     }
 
+    pub fn isString(self: Value) bool {
+        return self.isObjType(ObjType.string);
+    }
+
     // TODO:
     fn asString(self: Value) *ObjString {
         return @ptrCast(*ObjString, self.obj);
@@ -106,7 +110,7 @@ pub fn valuesEqual(a: Value, b: Value) bool {
         ValueType.boolean => return a.boolean == b.boolean,
         ValueType.nil => return true,
         ValueType.number => return a.number == b.number,
-        ValueType.obj => return a.obj == b.obj,
+        ValueType.obj => return std.mem.eql(u8, a.asCString(), b.asCString()),
         // else => return false,
     }
 }
@@ -116,19 +120,15 @@ pub fn printValue(value: Value) void {
         Value.number => |v| print("{d}", .{v}),
         Value.boolean => |v| print("{b}", .{v}),
         Value.nil => |_| print("nil", .{}),
-        Value.obj => |v| printObj(v),
+        Value.obj => |_| printObject(value),
     }
 }
 
-fn printObj(_: *Obj) void {
-    // TODO
-    // print("obj:{any}", obj);
-
-    //     switch (OBJ_TYPE(value)) {
-    //     case OBJ_STRING:
-    //       printf("%s", AS_CSTRING(value));
-    //       break;
-    //   }
+fn printObject(value: Value) void {
+    var obj = value.obj;
+    switch (obj.type_) {
+        ObjType.string => print("{s}", .{value.asCString()}),
+    }
 }
 
 test "tagged union can access chosen type" {
@@ -155,6 +155,15 @@ test "tagged union can access chosen type" {
     const c3 = Value{ .nil = undefined };
     try expect(@as(Value, c3) == Value.nil);
     printValue(c3);
+
+    var s = ObjString{
+        .obj = Obj{ .type_ = ObjType.string },
+        .length = 5,
+        .chars = "hello",
+    };
+    const c4 = Value{ .obj = &s.obj };
+    try expect(@as(Value, c4) == Value.obj);
+    printValue(c4);
 }
 
 test "can call isObj method on union" {
@@ -173,4 +182,25 @@ test "can translate between Value and ObjString" {
     var c1 = Value{ .obj = @ptrCast(*Obj, &s) };
     try expect(c1.isObjType(ObjType.string) == true);
     try expectEqualStrings("hello", c1.asCString());
+}
+
+test "valuesEqual for Lox strings" {
+    var s1 = ObjString{
+        .obj = Obj{ .type_ = ObjType.string },
+        .length = 5,
+        .chars = "hello",
+    };
+
+    var c1 = Value{ .obj = @ptrCast(*Obj, &s1) };
+
+    var s2 = ObjString{
+        .obj = Obj{ .type_ = ObjType.string },
+        .length = 5,
+        .chars = "hello",
+    };
+
+    var c2 = Value{ .obj = @ptrCast(*Obj, &s2) };
+
+    try expectEqualStrings(c1.asCString(), c2.asCString());
+    try expect(valuesEqual(c1, c2));
 }

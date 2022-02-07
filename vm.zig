@@ -108,7 +108,6 @@ pub const VM = struct {
 
     fn isValidBinaryOp(self: *VM) bool {
         if (!(self.peek(0).isNumber() and self.peek(1).isNumber())) {
-            self.runtimeError("Operands must be numbers.");
             return false;
         }
         return true;
@@ -201,11 +200,25 @@ pub const VM = struct {
                 OpCode.OpNil => {
                     try self.stack.append(Value{ .nil = undefined });
                 },
-                OpCode.OpAdd, OpCode.OpSubtract, OpCode.OpMultiply, OpCode.OpDivide, OpCode.OpGreater, OpCode.OpLess => {
-                    if (!self.isValidBinaryOp()) {
+                OpCode.OpAdd => {
+                    // + supports adding numbers or concatenating strings
+                    if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
+                        try self.binaryOp(instruction);
+                    } else if (self.peek(0).isString() and self.peek(1).isString()) {
+                        // TODO: implement concatenation
+                        // concatenate(self);
+                    } else {
+                        self.runtimeError("Operands must be two numbers or two strings.");
                         return InterpretResult.InterpretRuntimeError;
                     }
-                    try self.binaryOp(instruction);
+                },
+                OpCode.OpSubtract, OpCode.OpMultiply, OpCode.OpDivide, OpCode.OpGreater, OpCode.OpLess => {
+                    if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
+                        try self.binaryOp(instruction);
+                    } else {
+                        self.runtimeError("Operands must be two numbers.");
+                        return InterpretResult.InterpretRuntimeError;
+                    }
                 },
                 OpCode.OpNot => {
                     try self.stack.append(Value{ .boolean = self.stack.pop().isFalsey() });
@@ -220,6 +233,10 @@ pub const VM = struct {
 
         return InterpretResult.InterpretOk;
     }
+
+    // fn concatenate(vm: *VM, a: []const u8, b: []const u8) *ObjString {
+    //     concatenate
+    // }
 };
 
 test "virtual machine can negate a value" {
@@ -246,123 +263,113 @@ test "virtual machine can negate a value" {
     // disassemble
     disassembleChunk(chunk.*, "chunk");
 
+    // interpret
     const result = try vm.run();
     print("Interpret result: {s}\n", .{result});
     try expect(result == InterpretResult.InterpretOk);
 }
 
-// test "virtual machine can do some binary ops (add and divide)" {
-//     const testAllocator = std.heap.page_allocator;
-//     print("\n\n", .{}); // make space for test runner output
+test "virtual machine can do some binary ops (add and divide)" {
+    const testAllocator = std.testing.allocator;
+    print("\n\n", .{}); // make space for test runner output
 
-//     var chunk = Chunk{
-//         .code = &std.ArrayList(usize).init(testAllocator),
-//         .lines = &std.ArrayList(usize).init(testAllocator),
-//         .values = &std.ArrayList(Value).init(testAllocator),
-//     };
+    // Setup VM
+    var vm = try VM.init(testAllocator);
+    defer vm.free();
 
-//     const fakeLineNumber = 123;
+    // Manually modify chunk
+    var chunk = vm.chunk;
 
-//     // free
-//     defer chunk.free();
+    const fakeLineNumber = 123;
 
-//     // write
-//     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-//     const constant = try chunk.addConstant(Value{ .number = 1.2 });
-//     try chunk.write(constant, fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant = try chunk.addConstant(Value{ .number = 1.2 });
+    try chunk.write(constant, fakeLineNumber);
 
-//     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-//     const constant2 = try chunk.addConstant(Value{ .number = 3.4 });
-//     try chunk.write(constant2, fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant2 = try chunk.addConstant(Value{ .number = 3.4 });
+    try chunk.write(constant2, fakeLineNumber);
 
-//     try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
 
-//     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-//     const constant3 = try chunk.addConstant(Value{ .number = 5.6 });
-//     try chunk.write(constant3, 1);
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant3 = try chunk.addConstant(Value{ .number = 5.6 });
+    try chunk.write(constant3, 1);
 
-//     try chunk.write(@enumToInt(OpCode.OpDivide), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpDivide), fakeLineNumber);
 
-//     try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
 
-//     // disassemble
-//     disassembleChunk(chunk, "chunk");
+    // disassemble
+    disassembleChunk(chunk.*, "chunk");
 
-//     // interpret
-//     const vm = VM{
-//         .chunk = &chunk,
-//         .stack = &std.ArrayList(Value).init(testAllocator),
-//         .allocator = testAllocator,
-//     };
-//     const result = try vm.run();
-//     print("Interpret result: {s}\n", .{result});
-//     try expect(result == InterpretResult.InterpretOk);
-// }
+    // interpret
+    const result = try vm.run();
+    print("Interpret result: {s}\n", .{result});
+    try expect(result == InterpretResult.InterpretOk);
+}
 
 // // TODO
 // // target: 1 + 2 * 3 - 4 / -5
 // // note that this gets evaluated like so: ((((1+2) * 3) - 4) / -5)
-// test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
-//     const testAllocator = std.heap.page_allocator;
+test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
+    const testAllocator = std.testing.allocator;
+    print("\n\n", .{}); // make space for test runner output
 
-//     print("\n\n", .{}); // make space for test runner output
+    // Setup VM
+    var vm = try VM.init(testAllocator);
+    defer vm.free();
 
-//     // Setup VM
-//     const vm = try VM.init(testAllocator);
-//     defer vm.free();
+    // Manually modify chunk
+    var chunk = vm.chunk;
 
-//     // Manually modify chunk
-//     const chunk = vm.chunk;
-//     print("chunk = {any} \n", .{chunk});
-//     const fakeLineNumber = 123;
+    const fakeLineNumber = 123;
 
-//     // write
-//     // TODO: fails here.. what's up?
-//     print("chunk.write ...\n", .{});
-//     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    // write
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant = try chunk.addConstant(Value{ .number = 1 });
+    try chunk.write(constant, fakeLineNumber);
 
-//     print("\nwrote!!\n", .{});
-//     print("chunk addConstant\n...", .{});
+    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    const constant2 = try chunk.addConstant(Value{ .number = 2 });
+    try chunk.write(constant2, fakeLineNumber);
 
-//     const constant = try chunk.addConstant(Value{ .number = 1 });
-//     try chunk.write(constant, fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
 
-//     try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
-//     const constant2 = try chunk.addConstant(Value{ .number = 2 });
-//     try chunk.write(constant2, fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
 
-//     try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
+    // disassemble
+    disassembleChunk(chunk.*, "chunk");
 
-//     try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
+    // interpret
+    const result = try vm.run();
+    print("Interpret result: {s}\n", .{result});
+    try expect(result == InterpretResult.InterpretOk);
+}
 
-//     // disassemble
-//     disassembleChunk(chunk.*, "chunk");
+test "virtual machine can run a simple program" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
 
-//     const result = try vm.run();
-//     print("Interpret result: {s}\n", .{result});
-//     try expect(result == InterpretResult.InterpretOk);
-// }
+    const chars: []const u8 = "1;";
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
 
-// // test "compiler can emit tokens" {
-// // INPUT = 'print 1 + 2;'
-// //   1 31 'print'
-// //    | 21 '1'
-// //    |  7 '+'
-// //    | 21 '2'
-// //    |  8 ';'
-// //    2 39 ''
-// // }
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretOk);
+}
 
-// // TODO
+// // TODO: figure out why trailing -5 doesn't work
+// // target: 1 + 2 * 3 - 4 / -5
+// // note that this gets evaluated like so: ((((1+2) * 3) - 4) / -5)
+test "virtual machine can do arithmetic" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
 
-// // test "virtual machine can run a simple program" {
-// //     const testAllocator = std.heap.page_allocator;
-// //     const vm = VM.init(testAllocator);
+    const chars: []const u8 = "1 + 2 * 3 - 4 / (5);";
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
 
-// //     const chars: []const u8 = "1;";
-// //     var source = try testAllocator.alloc(u8, chars.len);
-// //     std.mem.copy(u8, source, chars);
-
-// //     const result = try vm.interpret(source);
-// //     try expect(result == InterpretResult.InterpretOk);
-// // }
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretOk);
+}
