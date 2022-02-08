@@ -14,14 +14,13 @@ const TokenType = @import("./scanner.zig").TokenType;
 
 const Value = @import("./value.zig").Value;
 
-const copyString = @import("./object.zig").copyString;
-const Allocator = std.mem.Allocator;
+const ObjManager = @import("./object.zig").ObjManager;
 
 const MAX_CONSTANTS = 256;
 
-var allocator: Allocator = undefined;
-pub fn setAllocator(a: Allocator) void {
-    allocator = a;
+var objManager: *ObjManager = undefined;
+pub fn setObjManager(om: *ObjManager) void {
+    objManager = om;
 }
 
 // Debugging flags
@@ -112,10 +111,10 @@ var parser = Parser{
     .panicMode = false,
 };
 
-pub fn compile(a: Allocator, source: []u8, chunk: *Chunk) !bool {
+pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !bool {
     // startup -- could be comptime TODO
     initRules();
-    setAllocator(a);
+    setObjManager(om);
 
     initScanner(source);
     compilingChunk = chunk;
@@ -172,7 +171,7 @@ fn string() void {
     const ts = tokenString(parser.previous);
     // extract the string's value, trimming the surrounding quotes
     const chars = ts[1 .. ts.len - 1];
-    var s = copyString(allocator, chars) catch {
+    var s = objManager.copyString(chars) catch {
         errorAtCurrent("Unable to allocate string");
         return;
     };

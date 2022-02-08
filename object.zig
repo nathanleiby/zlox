@@ -10,39 +10,63 @@ pub const ObjString = struct {
     chars: []const u8,
 };
 
-fn allocateString(allocator: Allocator, chars: []const u8, length: usize) !*ObjString {
-    var string: *ObjString = try allocator.create(ObjString);
-    string.length = length;
-    string.chars = chars;
-    return string;
-}
+pub const ObjManager = struct {
+    allocator: Allocator,
+    objects: std.ArrayList(*ObjString),
 
-// assumes it cannot take ownership of the characters you pass in,
-// so it makes a copy of the chars on the heap
-pub fn copyString(allocator: Allocator, chars: []const u8) !*ObjString {
-    var heapChars = try allocator.alloc(u8, chars.len);
-    std.mem.copy(u8, heapChars, chars);
-    return try allocateString(allocator, heapChars, chars.len);
-}
+    pub fn init(allocator: Allocator) !*ObjManager {
+        const om: *ObjManager = try allocator.create(ObjManager);
+        om.allocator = allocator;
+        om.objects = std.ArrayList(*ObjString).init(allocator);
+        return om;
+    }
 
-// assumes it can take ownership of the characters you pass in
-pub fn takeString(allocator: Allocator, chars: []const u8) !*ObjString {
-    return try allocateString(allocator, chars, chars.len);
-}
+    pub fn free(self: *ObjManager) void {
+        // free the ObjString's
+        const ownedSlice = self.objects.toOwnedSlice();
+        for (ownedSlice) |o| {
+            self.allocator.free(o.chars);
+            self.allocator.destroy(o);
+        }
+        self.allocator.free(ownedSlice);
 
-fn concat(allocator: Allocator, a: []const u8, b: []const u8) ![]u8 {
-    const result = try allocator.alloc(u8, a.len + b.len);
-    std.mem.copy(u8, result, a);
-    std.mem.copy(u8, result[a.len..], b);
-    return result;
-}
+        // free the objects arraylist
+        self.objects.deinit();
+
+        // free the ObjManager itself
+        self.allocator.destroy(self);
+    }
+
+    fn allocateString(self: *ObjManager, chars: []const u8, length: usize) !*ObjString {
+        var string: *ObjString = try self.allocator.create(ObjString);
+        string.length = length;
+        string.chars = chars;
+
+        // capture this object, so we can free later
+        try self.objects.append(string);
+        return string;
+    }
+
+    // assumes it cannot take ownership of the characters you pass in,
+    // so it makes a copy of the chars on the heap
+    pub fn copyString(self: *ObjManager, chars: []const u8) !*ObjString {
+        var heapChars = try self.allocator.alloc(u8, chars.len);
+        std.mem.copy(u8, heapChars, chars);
+        return try self.allocateString(heapChars, chars.len);
+    }
+
+    // assumes it can take ownership of the characters you pass in
+    pub fn takeString(self: *ObjManager, chars: []const u8) !*ObjString {
+        return try self.allocateString(chars, chars.len);
+    }
+};
 
 test "Copy a string" {
     const allocator = std.testing.allocator;
-    const result = try copyString(allocator, "foo");
-    defer {
-        allocator.free(result.chars);
-        allocator.destroy(result);
-    }
+
+    var om = try ObjManager.init(allocator);
+    defer om.free();
+
+    const result = try om.copyString("foo");
     try expect(std.mem.eql(u8, "foo", result.chars));
 }

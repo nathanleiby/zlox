@@ -10,10 +10,10 @@ const disassembleInstruction = @import("./chunk.zig").disassembleInstruction;
 const OpCode = @import("./chunk.zig").OpCode;
 
 const Value = @import("./value.zig").Value;
-const takeString = @import("object.zig").takeString;
 const valuesEqual = @import("./value.zig").valuesEqual;
 const printValue = @import("./value.zig").printValue;
 
+const ObjManager = @import("./object.zig").ObjManager;
 const compiler = @import("./compiler.zig");
 const concat = @import("./memory.zig").concat;
 
@@ -76,12 +76,14 @@ const TokenType = enum {
 
 pub const VM = struct {
     chunk: *Chunk,
+    objManager: *ObjManager,
     stack: std.ArrayList(Value),
     allocator: Allocator,
 
     pub fn init(a: Allocator) !VM {
         return VM{
             .chunk = try Chunk.init(a),
+            .objManager = try ObjManager.init(a),
             .stack = std.ArrayList(Value).init(a),
             // to allow allocating more memory within compile(), e.g. to store strings
             .allocator = a,
@@ -92,10 +94,11 @@ pub const VM = struct {
         self.chunk.free();
         self.allocator.destroy(self.chunk);
         self.stack.deinit();
+        self.objManager.free();
     }
 
     pub fn interpret(self: *VM, source: []u8) !InterpretResult {
-        const compileSuccess = try compiler.compile(self.allocator, source, self.chunk);
+        const compileSuccess = try compiler.compile(source, self.chunk, self.objManager);
         if (!compileSuccess) {
             return InterpretResult.InterpretCompileError;
         }
@@ -248,7 +251,7 @@ pub const VM = struct {
 
     fn concatenate(self: *VM, a: []const u8, b: []const u8) !void {
         const result = try concat(self.allocator, a, b);
-        var s = try takeString(self.allocator, result);
+        var s = try self.objManager.takeString(result);
         const v = Value{ .objString = s };
         try self.stack.append(v);
     }
