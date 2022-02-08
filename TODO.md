@@ -1,7 +1,8 @@
-- [ ] TODO: Look at a real implementation of VM and Chunk in someone's Zig. wat am i doing wrong with allocate :D
-- [ ] Move to zig 0.9
-  - embrace allocgate e.g. `Allocator` vs `*Allocator`
-    - https://www.forrestthewoods.com/blog/failing-to-learn-zig-via-advent-of-code/
-    - https://pithlessly.github.io/allocgate.html
+- [ ] bug: missing `;` (e.g. in repl) results in segfault
+  ```
+  [line 1] Error: advance() error
+  prefixRule TokenType.EOF: ParseRule{ .prefix = fn() void@aaaaaaaaaaaaaaaa, .infix = fn() void@aaaaaaaaaaaaaaaa, .precedence = Precedence.PREC_NONE }
+  zsh: segmentation fault  zig run main.zig
+  ```
 - [ ] (someday) code profiling / speed
   - could profile some of the open-source impls too, for comparison

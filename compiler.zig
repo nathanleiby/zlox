@@ -169,8 +169,9 @@ fn grouping() void {
 }
 
 fn string() void {
+    const ts = tokenString(parser.previous);
     // extract the string's value, trimming the surrounding quotes
-    const chars = getScanner().source[parser.previous.start + 1 .. parser.previous.length - 2];
+    const chars = ts[1 .. ts.len - 1];
     var s = copyString(allocator, chars) catch {
         errorAtCurrent("Unable to allocate string");
         return;

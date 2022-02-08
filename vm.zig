@@ -10,10 +10,12 @@ const disassembleInstruction = @import("./chunk.zig").disassembleInstruction;
 const OpCode = @import("./chunk.zig").OpCode;
 
 const Value = @import("./value.zig").Value;
+const takeString = @import("object.zig").takeString;
 const valuesEqual = @import("./value.zig").valuesEqual;
 const printValue = @import("./value.zig").printValue;
 
 const compiler = @import("./compiler.zig");
+const concat = @import("./memory.zig").concat;
 
 // Debugging flags
 const DEBUG_TRACE_EXECUTION = true; // debug mode
@@ -106,6 +108,14 @@ pub const VM = struct {
         return self.stack.items[self.stack.items.len - 1 - distance];
     }
 
+    // fn push(self: *VM, v: Value) !void {
+    //     try self.stack.append(v);
+    // }
+
+    // fn pop(self: *VM) Value {
+    //     return self.stack.pop();
+    // }
+
     fn isValidBinaryOp(self: *VM) bool {
         if (!(self.peek(0).isNumber() and self.peek(1).isNumber())) {
             return false;
@@ -173,8 +183,9 @@ pub const VM = struct {
             ip += 1;
             switch (instruction) {
                 OpCode.OpReturn => {
-                    const retVal = self.stack.pop();
-                    print("Return: {d}", .{retVal});
+                    var retVal = self.stack.pop();
+                    print("Return: ", .{});
+                    printValue(retVal);
                     print("\n", .{});
                     return InterpretResult.InterpretOk;
                 },
@@ -205,8 +216,9 @@ pub const VM = struct {
                     if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
                         try self.binaryOp(instruction);
                     } else if (self.peek(0).isString() and self.peek(1).isString()) {
-                        // TODO: implement concatenation
-                        // concatenate(self);
+                        const b = self.stack.pop();
+                        const a = self.stack.pop();
+                        try self.concatenate(a.asCString(), b.asCString());
                     } else {
                         self.runtimeError("Operands must be two numbers or two strings.");
                         return InterpretResult.InterpretRuntimeError;
@@ -224,8 +236,8 @@ pub const VM = struct {
                     try self.stack.append(Value{ .boolean = self.stack.pop().isFalsey() });
                 },
                 OpCode.OpEqual => {
-                    const b = self.stack.pop();
-                    const a = self.stack.pop();
+                    var b = self.stack.pop();
+                    var a = self.stack.pop();
                     try self.stack.append(Value{ .boolean = valuesEqual(a, b) });
                 },
             }
@@ -234,9 +246,12 @@ pub const VM = struct {
         return InterpretResult.InterpretOk;
     }
 
-    // fn concatenate(vm: *VM, a: []const u8, b: []const u8) *ObjString {
-    //     concatenate
-    // }
+    fn concatenate(self: *VM, a: []const u8, b: []const u8) !void {
+        const result = try concat(self.allocator, a, b);
+        var s = try takeString(self.allocator, result);
+        const v = Value{ .objString = s };
+        try self.stack.append(v);
+    }
 };
 
 test "virtual machine can negate a value" {
@@ -379,6 +394,18 @@ test "virtual machine can work with strings" {
     var vm = try VM.init(testAllocator);
 
     const chars: []const u8 = "\"hello\";";
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
+
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretOk);
+}
+
+test "virtual machine can concat strings" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
+
+    const chars: []const u8 = "\"foo\" + \"bar\" + \"baz\";";
     var source = try testAllocator.alloc(u8, chars.len);
     std.mem.copy(u8, source, chars);
 

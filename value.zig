@@ -40,8 +40,8 @@ pub const Value = union(ValueType) {
         return (@as(Value, self) == Value.objString);
     }
 
-    fn asCString(self: Value) []const u8 {
-        return self.objString.chars;
+    pub fn asCString(self: Value) []const u8 {
+        return self.objString.*.chars;
     }
 };
 

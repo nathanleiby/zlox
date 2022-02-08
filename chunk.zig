@@ -5,6 +5,7 @@ const Allocator = std.mem.Allocator;
 const expect = std.testing.expect;
 
 const Value = @import("./value.zig").Value;
+const printValue = @import("./value.zig").printValue;
 
 pub const OpCode = enum(usize) {
     OpReturn,
@@ -114,7 +115,7 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
             print("OP_CONSTANT          ", .{});
             const constantIdx = chunk.code.items[offset + 1];
             print("{:04} -- ", .{constantIdx});
-            print("{d}", .{chunk.values.items[constantIdx]});
+            printValue(chunk.values.items[constantIdx]);
             print("\n", .{});
             return offset + 2;
         },
