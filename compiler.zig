@@ -13,8 +13,6 @@ const Token = @import("./scanner.zig").Token;
 const TokenType = @import("./scanner.zig").TokenType;
 
 const Value = @import("./value.zig").Value;
-const Obj = @import("./value.zig").Obj;
-const ObjString = @import("./value.zig").ObjString;
 
 const copyString = @import("./object.zig").copyString;
 const Allocator = std.mem.Allocator;
@@ -173,8 +171,11 @@ fn grouping() void {
 fn string() void {
     // extract the string's value, trimming the surrounding quotes
     const chars = getScanner().source[parser.previous.start + 1 .. parser.previous.length - 2];
-    var s = copyString(allocator, chars);
-    const v = Value{ .obj = @ptrCast(*Obj, &s) };
+    var s = copyString(allocator, chars) catch {
+        errorAtCurrent("Unable to allocate string");
+        return;
+    };
+    const v = Value{ .objString = s };
     emitConstant(v);
 }
 

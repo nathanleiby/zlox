@@ -3,21 +3,22 @@ const print = std.debug.print;
 const expect = std.testing.expect;
 const expectEqualStrings = std.testing.expectEqualStrings;
 
-// based on
-// https://ziglang.org/documentation/master/#union
+const ObjString = @import("./object.zig").ObjString;
 
+// More info on unions in Zig:
+// https://ziglang.org/documentation/master/#union
 pub const ValueType = enum {
     boolean,
     number,
     nil,
-    obj,
+    objString,
 };
 
 pub const Value = union(ValueType) {
     boolean: bool,
     number: f64,
     nil: void,
-    obj: *Obj, // pointer to an obj
+    objString: *ObjString,
 
     pub fn isNumber(self: Value) bool {
         return (@as(Value, self) == Value.number);
@@ -35,56 +36,13 @@ pub const Value = union(ValueType) {
         return self.isNil() or (self.isBoolean() and !self.boolean);
     }
 
-    fn isObj(self: Value) bool {
-        return (@as(Value, self) == Value.obj);
-    }
-
-    fn isObjType(self: Value, t: ObjType) bool {
-        return self.isObj() and self.obj.*.type_ == t;
-    }
-
     pub fn isString(self: Value) bool {
-        return self.isObjType(ObjType.string);
-    }
-
-    // TODO:
-    fn asString(self: Value) *ObjString {
-        return @ptrCast(*ObjString, self.obj);
+        return (@as(Value, self) == Value.objString);
     }
 
     fn asCString(self: Value) []const u8 {
-        const string = self.asString().*;
-        return string.chars;
+        return self.objString.chars;
     }
-};
-
-pub const ObjType = enum {
-    string,
-};
-
-pub const Obj = struct {
-    type_: ObjType,
-
-    // TODO: how to handle this error?
-    // ./value.zig:32:16: error: '*Obj' and '*ObjString' do not have the same in-memory representation
-    //     return @ptrCast(*ObjString, self.obj);
-    //         ^
-    // ./value.zig:32:41: note: '*Obj' has no in-memory bits
-    //         return @ptrCast(*ObjString, self.obj);
-    //                                         ^
-    // ./value.zig:32:25: note: '*ObjString' has in-memory bits
-    //         return @ptrCast(*ObjString, self.obj);
-
-    // Hacky workaround for ^
-    // Faking these fields so I can ensure it aligns
-    // length: i64 = undefined,
-    chars: []const u8 = undefined,
-};
-
-pub const ObjString = struct {
-    obj: Obj,
-    length: usize,
-    chars: []const u8,
 };
 
 // // These are NUMBER_VAL, BOOL_VAL, NIL_VAL ...
@@ -110,7 +68,7 @@ pub fn valuesEqual(a: Value, b: Value) bool {
         ValueType.boolean => return a.boolean == b.boolean,
         ValueType.nil => return true,
         ValueType.number => return a.number == b.number,
-        ValueType.obj => return std.mem.eql(u8, a.asCString(), b.asCString()),
+        ValueType.objString => return std.mem.eql(u8, a.asCString(), b.asCString()),
         // else => return false,
     }
 }
@@ -120,14 +78,7 @@ pub fn printValue(value: Value) void {
         Value.number => |v| print("{d}", .{v}),
         Value.boolean => |v| print("{b}", .{v}),
         Value.nil => |_| print("nil", .{}),
-        Value.obj => |_| printObject(value),
-    }
-}
-
-fn printObject(value: Value) void {
-    var obj = value.obj;
-    switch (obj.type_) {
-        ObjType.string => print("{s}", .{value.asCString()}),
+        Value.objString => |_| print("{s}", .{value.asCString()}),
     }
 }
 
@@ -139,7 +90,7 @@ test "tagged union can access chosen type" {
         Value.boolean => |value| try expect(value == true),
         Value.number => unreachable,
         Value.nil => unreachable,
-        Value.obj => unreachable,
+        Value.objString => unreachable,
     }
 }
 
@@ -157,49 +108,39 @@ test "tagged union can access chosen type" {
     printValue(c3);
 
     var s = ObjString{
-        .obj = Obj{ .type_ = ObjType.string },
         .length = 5,
         .chars = "hello",
     };
-    const c4 = Value{ .obj = &s.obj };
-    try expect(@as(Value, c4) == Value.obj);
+    const c4 = Value{ .objString = &s };
+    try expect(@as(Value, c4) == Value.objString);
     printValue(c4);
-}
-
-test "can call isObj method on union" {
-    var obj = Obj{ .type_ = ObjType.string };
-    const c1 = Value{ .obj = &obj };
-    try expect(c1.isObj() == true);
 }
 
 test "can translate between Value and ObjString" {
     var s = ObjString{
-        .obj = Obj{ .type_ = ObjType.string },
         .length = 5,
         .chars = "hello",
     };
 
-    var c1 = Value{ .obj = @ptrCast(*Obj, &s) };
-    try expect(c1.isObjType(ObjType.string) == true);
+    var c1 = Value{ .objString = &s };
+    try expect(c1.isString() == true);
     try expectEqualStrings("hello", c1.asCString());
 }
 
 test "valuesEqual for Lox strings" {
     var s1 = ObjString{
-        .obj = Obj{ .type_ = ObjType.string },
         .length = 5,
         .chars = "hello",
     };
 
-    var c1 = Value{ .obj = @ptrCast(*Obj, &s1) };
+    var c1 = Value{ .objString = &s1 };
 
     var s2 = ObjString{
-        .obj = Obj{ .type_ = ObjType.string },
         .length = 5,
         .chars = "hello",
     };
 
-    var c2 = Value{ .obj = @ptrCast(*Obj, &s2) };
+    var c2 = Value{ .objString = &s2 };
 
     try expectEqualStrings(c1.asCString(), c2.asCString());
     try expect(valuesEqual(c1, c2));

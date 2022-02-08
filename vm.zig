@@ -347,7 +347,7 @@ test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
     try expect(result == InterpretResult.InterpretOk);
 }
 
-test "virtual machine can run a simple program" {
+test "virtual machine can run minimal program" {
     const testAllocator = std.heap.page_allocator;
     var vm = try VM.init(testAllocator);
 
@@ -367,6 +367,18 @@ test "virtual machine can do arithmetic" {
     var vm = try VM.init(testAllocator);
 
     const chars: []const u8 = "1 + 2 * 3 - 4 / (5);";
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
+
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretOk);
+}
+
+test "virtual machine can work with strings" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
+
+    const chars: []const u8 = "\"hello\";";
     var source = try testAllocator.alloc(u8, chars.len);
     std.mem.copy(u8, source, chars);
 
