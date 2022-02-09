@@ -139,13 +139,13 @@ fn expression() void {
 
 fn literal() void {
     switch (parser.previous.ttype) {
-        TokenType.FALSE => {
+        .FALSE => {
             emitByte(@enumToInt(OpCode.OpFalse));
         },
-        TokenType.TRUE => {
+        .TRUE => {
             emitByte(@enumToInt(OpCode.OpTrue));
         },
-        TokenType.NIL => {
+        .NIL => {
             emitByte(@enumToInt(OpCode.OpNil));
         },
         else => {
@@ -187,10 +187,10 @@ fn unary() void {
 
     // Emit the operator instruction.
     switch (operatorType) {
-        TokenType.MINUS => {
+        .MINUS => {
             emitByte(@enumToInt(OpCode.OpNegate));
         },
-        TokenType.BANG => {
+        .BANG => {
             emitByte(@enumToInt(OpCode.OpNot));
         },
         else => {
@@ -205,34 +205,34 @@ fn binary() void {
     parsePrecedence(@intToEnum(Precedence, (@enumToInt(rule.precedence) + 1)));
 
     switch (operatorType) {
-        TokenType.PLUS => {
+        .PLUS => {
             emitByte(@enumToInt(OpCode.OpAdd));
         },
-        TokenType.MINUS => {
+        .MINUS => {
             emitByte(@enumToInt(OpCode.OpSubtract));
         },
-        TokenType.STAR => {
+        .STAR => {
             emitByte(@enumToInt(OpCode.OpMultiply));
         },
-        TokenType.SLASH => {
+        .SLASH => {
             emitByte(@enumToInt(OpCode.OpDivide));
         },
-        TokenType.BANG_EQUAL => {
+        .BANG_EQUAL => {
             emitBytes(@enumToInt(OpCode.OpEqual), @enumToInt(OpCode.OpNot));
         },
-        TokenType.EQUAL_EQUAL => {
+        .EQUAL_EQUAL => {
             emitByte(@enumToInt(OpCode.OpEqual));
         },
-        TokenType.GREATER_EQUAL => {
+        .GREATER_EQUAL => {
             emitBytes(@enumToInt(OpCode.OpGreater), @enumToInt(OpCode.OpEqual));
         },
-        TokenType.GREATER => {
+        .GREATER => {
             emitByte(@enumToInt(OpCode.OpGreater));
         },
-        TokenType.LESS_EQUAL => {
+        .LESS_EQUAL => {
             emitBytes(@enumToInt(OpCode.OpLess), @enumToInt(OpCode.OpEqual));
         },
-        TokenType.LESS => {
+        .LESS => {
             emitByte(@enumToInt(OpCode.OpLess));
         },
         else => {

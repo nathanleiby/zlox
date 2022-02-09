@@ -131,12 +131,12 @@ pub const VM = struct {
         const a = self.stack.pop();
 
         switch (op) {
-            OpCode.OpAdd => try self.stack.append(Value{ .number = a.number + b.number }),
-            OpCode.OpSubtract => try self.stack.append(Value{ .number = a.number - b.number }),
-            OpCode.OpMultiply => try self.stack.append(Value{ .number = a.number * b.number }),
-            OpCode.OpDivide => try self.stack.append(Value{ .number = a.number / b.number }),
-            OpCode.OpGreater => try self.stack.append(Value{ .boolean = a.number > b.number }),
-            OpCode.OpLess => try self.stack.append(Value{ .boolean = a.number < b.number }),
+            .OpAdd => try self.stack.append(Value{ .number = a.number + b.number }),
+            .OpSubtract => try self.stack.append(Value{ .number = a.number - b.number }),
+            .OpMultiply => try self.stack.append(Value{ .number = a.number * b.number }),
+            .OpDivide => try self.stack.append(Value{ .number = a.number / b.number }),
+            .OpGreater => try self.stack.append(Value{ .boolean = a.number > b.number }),
+            .OpLess => try self.stack.append(Value{ .boolean = a.number < b.number }),
             else => unreachable,
         }
     }
@@ -185,36 +185,36 @@ pub const VM = struct {
             const instruction = @intToEnum(OpCode, byte);
             ip += 1;
             switch (instruction) {
-                OpCode.OpReturn => {
+                .OpReturn => {
                     var retVal = self.stack.pop();
                     print("Return: ", .{});
                     printValue(retVal);
                     print("\n", .{});
                     return InterpretResult.InterpretOk;
                 },
-                OpCode.OpNegate => {
+                .OpNegate => {
                     if (!(@as(Value, self.peek(0)) == Value.number)) {
                         self.runtimeError("Negation operand must be a number.");
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.stack.append(Value{ .number = -self.stack.pop().number });
                 },
-                OpCode.OpConstant => {
+                .OpConstant => {
                     const constantIdx = self.chunk.code.items[ip];
                     ip += 1;
                     const constant = self.chunk.values.items[constantIdx];
                     try self.stack.append(constant);
                 },
-                OpCode.OpFalse => {
+                .OpFalse => {
                     try self.stack.append(Value{ .boolean = false });
                 },
-                OpCode.OpTrue => {
+                .OpTrue => {
                     try self.stack.append(Value{ .boolean = true });
                 },
-                OpCode.OpNil => {
+                .OpNil => {
                     try self.stack.append(Value{ .nil = undefined });
                 },
-                OpCode.OpAdd => {
+                .OpAdd => {
                     // + supports adding numbers or concatenating strings
                     if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
                         try self.binaryOp(instruction);
@@ -227,7 +227,7 @@ pub const VM = struct {
                         return InterpretResult.InterpretRuntimeError;
                     }
                 },
-                OpCode.OpSubtract, OpCode.OpMultiply, OpCode.OpDivide, OpCode.OpGreater, OpCode.OpLess => {
+                .OpSubtract, .OpMultiply, .OpDivide, .OpGreater, .OpLess => {
                     if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
                         try self.binaryOp(instruction);
                     } else {
@@ -235,10 +235,10 @@ pub const VM = struct {
                         return InterpretResult.InterpretRuntimeError;
                     }
                 },
-                OpCode.OpNot => {
+                .OpNot => {
                     try self.stack.append(Value{ .boolean = self.stack.pop().isFalsey() });
                 },
-                OpCode.OpEqual => {
+                .OpEqual => {
                     var b = self.stack.pop();
                     var a = self.stack.pop();
                     try self.stack.append(Value{ .boolean = valuesEqual(a, b) });

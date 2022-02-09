@@ -108,10 +108,10 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
 
     const item = @intToEnum(OpCode, byte);
     switch (item) {
-        OpCode.OpReturn => {
+        .OpReturn => {
             return simpleInstruction("OP_RETURN", offset);
         },
-        OpCode.OpConstant => {
+        .OpConstant => {
             print("OP_CONSTANT          ", .{});
             const constantIdx = chunk.code.items[offset + 1];
             print("{:04} -- ", .{constantIdx});
@@ -119,7 +119,7 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
             print("\n", .{});
             return offset + 2;
         },
-        OpCode.OpNegate => {
+        .OpNegate => {
             print("OP_NEGATE            ", .{});
             const constantIdx = chunk.code.items[offset + 1];
             print("{:04} -- ", .{constantIdx});
@@ -127,37 +127,37 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
             print("\n", .{});
             return offset + 1;
         },
-        OpCode.OpAdd => {
+        .OpAdd => {
             return simpleInstruction("OP_ADD", offset);
         },
-        OpCode.OpSubtract => {
+        .OpSubtract => {
             return simpleInstruction("OP_SUBTRACT", offset);
         },
-        OpCode.OpMultiply => {
+        .OpMultiply => {
             return simpleInstruction("OP_MULTIPLY", offset);
         },
-        OpCode.OpDivide => {
+        .OpDivide => {
             return simpleInstruction("OP_DIVIDE", offset);
         },
-        OpCode.OpNil => {
+        .OpNil => {
             return simpleInstruction("OP_NIL", offset);
         },
-        OpCode.OpTrue => {
+        .OpTrue => {
             return simpleInstruction("OP_TRUE", offset);
         },
-        OpCode.OpFalse => {
+        .OpFalse => {
             return simpleInstruction("OP_FALSE", offset);
         },
-        OpCode.OpNot => {
+        .OpNot => {
             return simpleInstruction("OP_NOT", offset);
         },
-        OpCode.OpGreater => {
+        .OpGreater => {
             return simpleInstruction("OP_GREATER", offset);
         },
-        OpCode.OpLess => {
+        .OpLess => {
             return simpleInstruction("OP_LESS", offset);
         },
-        OpCode.OpEqual => {
+        .OpEqual => {
             return simpleInstruction("OP_EQUAL", offset);
         },
     }
