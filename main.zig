@@ -37,6 +37,7 @@ fn runFile(path: []u8) !void {
     defer file.close();
 
     const source: []u8 = try file.readToEndAlloc(allocator, maxFileSize);
+    defer allocator.free(source);
 
     var vm = try VM.init(allocator);
     defer vm.free();
