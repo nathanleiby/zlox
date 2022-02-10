@@ -17,6 +17,6 @@
 - [ ] Explore how to get doc strings working (e.g. functions) and showing up in VSCode
   - `///` works but the comment shows up below a huge struct def, so not so useful.
 - [ ] Use Zig error handling
-  - one place: compiler errors like `consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.")`
+  - one place: compiler errors like `consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.")`. We already have fns like `err` and `errorAt`
 - [ ] (someday) code profiling / speed
   - could profile some of the open-source impls too, for comparison

@@ -260,6 +260,20 @@ pub const VM = struct {
                         return InterpretResult.InterpretRuntimeError;
                     }
                 },
+                .OpSetGlobal => {
+                    const name = self.readString();
+                    const old = try self.objManager.globals.fetchPut(name, self.peek(0));
+                    if (old) |_| {
+                        // we overwrote an existing value. All good!
+                    } else {
+                        // we created a new global variable, but this should only assign an existing one.
+                        // delete the new value
+                        _ = self.objManager.globals.remove(name);
+                        // TODO: dynamically create a string and pass in name
+                        self.runtimeError("Undefined variable 'TODO:passVarName'.");
+                        return InterpretResult.InterpretRuntimeError;
+                    }
+                },
             }
         }
 

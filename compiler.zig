@@ -49,13 +49,17 @@ const ParseRule = struct {
 };
 
 // TODO: refactor so parser fns can error out. right now I'm using catch {} to workaround
-// const ParseError = error {};
+// https://ziglang.org/documentation/master/#toc-Errors
+// const ParseError = error {
+//
+// };
+
 // const ParseFn = fn () ParseError!void;
 
-const ParseFn = fn () void;
+const ParseFn = fn (canAssign: bool) void;
 
 const numRules = 40;
-var rules: [numRules]ParseRule = undefined;
+var rules: [numRules]ParseRule = undefined; // TODO: Is it possible to declare this more directly (vs numRules and initRules())
 
 fn initRules() void {
     rules[@enumToInt(TokenType.LEFT_PAREN)] = ParseRule{ .prefix = grouping, .infix = undefined, .precedence = Precedence.PREC_NONE };
@@ -236,7 +240,7 @@ fn expression() void {
     parsePrecedence(Precedence.PREC_ASSIGNMENT);
 }
 
-fn literal() void {
+fn literal(_: bool) void {
     switch (parser.previous.ttype) {
         .FALSE => {
             emitByte(@enumToInt(OpCode.OpFalse));
@@ -254,19 +258,19 @@ fn literal() void {
     }
 }
 
-fn number() void {
+fn number(_: bool) void {
     // TODO: for now, falls back to 0 instead of erroring
     const value = std.fmt.parseFloat(f64, tokenString(parser.previous)) catch 0;
     emitConstant(Value{ .number = value });
 }
 
-fn grouping() void {
+fn grouping(_: bool) void {
     // we assume the initial '(' has already been consumed.
     expression();
     consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-fn string() void {
+fn string(_: bool) void {
     const ts = tokenString(parser.previous);
     // extract the string's value, trimming the surrounding quotes
     const chars = ts[1 .. ts.len - 1];
@@ -278,19 +282,24 @@ fn string() void {
     emitConstant(v);
 }
 
-fn variable() void {
+fn variable(canAssign: bool) void {
     // TODO: handle errors properly
-    namedVariable(parser.previous) catch {
+    namedVariable(parser.previous, canAssign) catch {
         print("FIXME: handle errors properly for variable()", .{});
     };
 }
 
-fn namedVariable(token: Token) !void {
+fn namedVariable(token: Token, canAssign: bool) !void {
     const arg = try identifierConstant(token);
-    emitBytes(@enumToInt(OpCode.OpGetGlobal), arg);
+    if (canAssign and match(TokenType.EQUAL)) {
+        expression();
+        emitBytes(@enumToInt(OpCode.OpSetGlobal), arg);
+    } else {
+        emitBytes(@enumToInt(OpCode.OpGetGlobal), arg);
+    }
 }
 
-fn unary() void {
+fn unary(_: bool) void {
     const operatorType: TokenType = parser.previous.ttype;
 
     // Compile the operand.
@@ -310,7 +319,7 @@ fn unary() void {
     }
 }
 
-fn binary() void {
+fn binary(_: bool) void {
     const operatorType: TokenType = parser.previous.ttype;
     const rule: *ParseRule = getRule(operatorType);
     parsePrecedence(@intToEnum(Precedence, (@enumToInt(rule.precedence) + 1)));
@@ -367,11 +376,16 @@ fn parsePrecedence(precedence: Precedence) void {
         return;
     }
 
-    prefixRule();
+    const canAssign = @enumToInt(precedence) <= @enumToInt(Precedence.PREC_ASSIGNMENT);
+    prefixRule(canAssign);
     while (@enumToInt(precedence) <= @enumToInt(getRule(parser.current.ttype).precedence)) {
         advance();
         const infixRule = getRule(parser.previous.ttype).infix;
-        infixRule();
+        infixRule(canAssign);
+    }
+
+    if (canAssign and match(TokenType.EQUAL)) {
+        err("Invalid assignment target.");
     }
 }
 
