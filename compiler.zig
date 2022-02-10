@@ -133,6 +133,20 @@ pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !bool {
     return !parser.hadError;
 }
 
+fn synchronize() void {
+    parser.panicMode = false;
+
+    while (parser.current.ttype != TokenType.EOF) {
+        if (parser.previous.ttype == TokenType.SEMICOLON) return;
+        switch (parser.current.ttype) {
+            .CLASS, .FUN, .VAR, .FOR, .IF, .WHILE, .PRINT, .RETURN => return,
+            else => {}, // do nothing
+        }
+
+        advance();
+    }
+}
+
 fn match(ttype: TokenType) bool {
     if (DEBUG_MODE) print("match() parser.current = {any}\n", .{parser.current});
     if (!check(ttype)) return false;
@@ -147,6 +161,12 @@ fn check(ttype: TokenType) bool {
 
 fn declaration() void {
     statement();
+
+    if (parser.panicMode) {
+        // we hit a compile error while parsing the previous statement.
+        // try to resume from the next statement.
+        synchronize();
+    }
 }
 
 fn statement() void {
