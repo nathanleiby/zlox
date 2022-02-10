@@ -25,6 +25,7 @@ pub fn setObjManager(om: *ObjManager) void {
 
 // Debugging flags
 const DEBUG_PRINT_CODE = true; // TODO: try out comptime
+const DEBUG_MODE = false;
 
 const Precedence = enum {
     PREC_NONE, // base case
@@ -122,15 +123,50 @@ pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !bool {
     parser.hadError = false;
     parser.panicMode = false;
 
+    advance(); // prime
     // scan tokens
-    advance();
-    // convert tokens to expression
-    expression();
+    while (!match(TokenType.EOF)) {
+        declaration();
+    }
 
-    // TODO: consume more than one expression, then check for EOF
-    // consume(TokenType.EOF, "Expect end of expression.");
     endCompiler();
     return !parser.hadError;
+}
+
+fn match(ttype: TokenType) bool {
+    if (DEBUG_MODE) print("match() parser.current = {any}\n", .{parser.current});
+    if (!check(ttype)) return false;
+    advance();
+    return true;
+}
+
+fn check(ttype: TokenType) bool {
+    if (DEBUG_MODE) print("check() parser.current = {any}\n", .{parser.current});
+    return (parser.current.ttype == ttype);
+}
+
+fn declaration() void {
+    statement();
+}
+
+fn statement() void {
+    if (match(TokenType.PRINT)) {
+        printStatement();
+    } else {
+        expressionStatement();
+    }
+}
+
+fn printStatement() void {
+    expression();
+    consume(TokenType.SEMICOLON, "Expect ';' after value.");
+    emitByte(@enumToInt(OpCode.OpPrint));
+}
+
+fn expressionStatement() void {
+    expression();
+    consume(TokenType.SEMICOLON, "Expect ';' after expression.");
+    emitByte(@enumToInt(OpCode.OpPop));
 }
 
 fn expression() void {
@@ -306,6 +342,7 @@ fn emitBytes(byte1: u8, byte2: u8) void {
 }
 
 fn consume(ttype: TokenType, message: []const u8) void {
+    if (DEBUG_MODE) print("consume({any}) parser.current = {any}\n", .{ ttype, parser.current });
     if (parser.current.ttype == ttype) {
         advance();
         return;
@@ -319,6 +356,7 @@ fn advance() void {
 
     while (true) {
         parser.current = scanToken();
+        if (DEBUG_MODE) print("advance() .previous = {any} .current = {any}\n", .{ parser.previous, parser.current });
         if (parser.current.ttype != TokenType.ERROR) break;
 
         errorAtCurrent("advance() error"); // TODO

@@ -186,10 +186,6 @@ pub const VM = struct {
             ip += 1;
             switch (instruction) {
                 .OpReturn => {
-                    var retVal = self.stack.pop();
-                    print("Return: ", .{});
-                    printValue(retVal);
-                    print("\n", .{});
                     return InterpretResult.InterpretOk;
                 },
                 .OpNegate => {
@@ -242,6 +238,13 @@ pub const VM = struct {
                     var b = self.stack.pop();
                     var a = self.stack.pop();
                     try self.stack.append(Value{ .boolean = valuesEqual(a, b) });
+                },
+                .OpPrint => {
+                    printValue(self.stack.pop());
+                    print("\n", .{});
+                },
+                .OpPop => {
+                    _ = self.stack.pop();
                 },
             }
         }
@@ -417,6 +420,21 @@ test "virtual machine can concat strings" {
     const chars: []const u8 = (
         \\"foo" + "bar" + "baz";
     );
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
+
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretOk);
+}
+
+test "virtual machine can print()" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
+
+    const chars: []const u8 = (
+        \\print "hello world";
+    );
+
     var source = try testAllocator.alloc(u8, chars.len);
     std.mem.copy(u8, source, chars);
 

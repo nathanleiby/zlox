@@ -22,6 +22,8 @@ pub const OpCode = enum(usize) {
     OpEqual,
     OpGreater,
     OpLess,
+    OpPrint,
+    OpPop,
 };
 
 // fn makeChunk(allocator: Allocator) !*Chunk {
@@ -159,6 +161,12 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
         },
         .OpEqual => {
             return simpleInstruction("OP_EQUAL", offset);
+        },
+        .OpPrint => {
+            return simpleInstruction("OP_PRINT", offset);
+        },
+        .OpPop => {
+            return simpleInstruction("OP_POP", offset);
         },
     }
 }

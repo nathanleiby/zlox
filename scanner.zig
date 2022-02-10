@@ -296,7 +296,7 @@ fn string() Token {
 }
 
 fn isAtEnd() bool {
-    return scanner.current >= scanner.source.len - 1;
+    return scanner.current > scanner.source.len - 1;
 }
 
 fn match(expected: u8) bool {
