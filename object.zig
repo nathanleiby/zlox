@@ -5,6 +5,8 @@ const expect = std.testing.expect;
 
 const allocate = @import("./memory.zig").allocate;
 
+const Value = @import("./value.zig").Value;
+
 // toggle debug logging
 const DEBUG_MODE = false;
 
@@ -17,12 +19,14 @@ pub const ObjManager = struct {
     allocator: Allocator,
     objects: std.ArrayList(*ObjString),
     strings: std.StringHashMap(*ObjString),
+    globals: std.StringHashMap(Value),
 
     pub fn init(allocator: Allocator) !*ObjManager {
         const om: *ObjManager = try allocator.create(ObjManager);
         om.allocator = allocator;
         om.objects = std.ArrayList(*ObjString).init(allocator);
         om.strings = std.StringHashMap(*ObjString).init(allocator);
+        om.globals = std.StringHashMap(Value).init(allocator);
         return om;
     }
 

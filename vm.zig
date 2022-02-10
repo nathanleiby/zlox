@@ -14,6 +14,7 @@ const valuesEqual = @import("./value.zig").valuesEqual;
 const printValue = @import("./value.zig").printValue;
 
 const ObjManager = @import("./object.zig").ObjManager;
+const ObjString = @import("./object.zig").ObjString;
 const compiler = @import("./compiler.zig");
 const concat = @import("./memory.zig").concat;
 
@@ -79,6 +80,7 @@ pub const VM = struct {
     objManager: *ObjManager,
     stack: std.ArrayList(Value),
     allocator: Allocator,
+    ip: usize, // instruction pointer
 
     pub fn init(a: Allocator) !VM {
         return VM{
@@ -87,6 +89,7 @@ pub const VM = struct {
             .stack = std.ArrayList(Value).init(a),
             // to allow allocating more memory within compile(), e.g. to store strings
             .allocator = a,
+            .ip = 0,
         };
     }
 
@@ -164,11 +167,10 @@ pub const VM = struct {
     }
 
     fn run(self: *VM) !InterpretResult {
-        var ip: usize = 0; // instruction pointer
         while (true) {
             if (DEBUG_TRACE_EXECUTION) {
                 if (DEBUG_TRACE_EXECUTION_INCLUDE_INSTRUCTIONS) {
-                    _ = disassembleInstruction(self.chunk, ip);
+                    _ = disassembleInstruction(self.chunk, self.ip);
                 }
 
                 // print the stack
@@ -181,9 +183,9 @@ pub const VM = struct {
                 print("\n", .{});
             }
 
-            const byte = self.chunk.code.items[ip];
+            const byte = self.chunk.code.items[self.ip];
             const instruction = @intToEnum(OpCode, byte);
-            ip += 1;
+            self.ip += 1;
             switch (instruction) {
                 .OpReturn => {
                     return InterpretResult.InterpretOk;
@@ -196,10 +198,7 @@ pub const VM = struct {
                     try self.stack.append(Value{ .number = -self.stack.pop().number });
                 },
                 .OpConstant => {
-                    const constantIdx = self.chunk.code.items[ip];
-                    ip += 1;
-                    const constant = self.chunk.values.items[constantIdx];
-                    try self.stack.append(constant);
+                    try self.stack.append(self.readConstant());
                 },
                 .OpFalse => {
                     try self.stack.append(Value{ .boolean = false });
@@ -246,10 +245,24 @@ pub const VM = struct {
                 .OpPop => {
                     _ = self.stack.pop();
                 },
+                .OpDefineGlobal => {
+                    try self.objManager.globals.put(self.readString(), self.peek(0));
+                    _ = self.stack.pop();
+                },
             }
         }
 
         return InterpretResult.InterpretOk;
+    }
+
+    fn readConstant(self: *VM) Value {
+        const constantIdx = self.chunk.code.items[self.ip];
+        self.ip += 1;
+        return self.chunk.values.items[constantIdx];
+    }
+
+    fn readString(self: *VM) []const u8 {
+        return self.readConstant().asCString();
     }
 
     fn concatenate(self: *VM, a: []const u8, b: []const u8) !void {
@@ -452,6 +465,21 @@ test "virtual machine can uses interned strings" {
         \\"foobar";
         \\"foo" + "bar";
         \\"foobar";
+    );
+
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
+
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretOk);
+}
+
+test "virtual machine can define a global var" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
+
+    const chars: []const u8 = (
+        \\var x = "123";
     );
 
     var source = try testAllocator.alloc(u8, chars.len);

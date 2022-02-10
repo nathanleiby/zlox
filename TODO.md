@@ -1,6 +1,8 @@
 - [ ] Try out a zig linter https://github.com/nektro/ziglint
 - [ ] Make Enum naming more consistent and succinct
-  - e.g. `Precendence.PREC_NONE` => `Precedence.None` or `.none` (not sure what's the Zig convention)
+  - not sure what's the Zig convention for enum naming. Shoutcase? Camelcase?
+  - e.g. `Precendence.PREC_NONE` => `Precedence.None`
+  - e.g. `OpCode.OpNil` => `OpCode.Nil`
 - [ ] Refactor parser into a testable struct
 - [ ] Figure out how to do imports without importing the tests
   - maybe via packages https://zig.news/mattnite/import-and-packages-23mb
@@ -10,5 +12,11 @@
   prefixRule TokenType.EOF: ParseRule{ .prefix = fn() void@aaaaaaaaaaaaaaaa, .infix = fn() void@aaaaaaaaaaaaaaaa, .precedence = Precedence.PREC_NONE }
   zsh: segmentation fault  zig run main.zig
   ```
+- [ ] Setup build scripts to output a zlox binary
+  - use that when running `examples/` (nit: maybe rename to `tests/integration/`)
+- [ ] Explore how to get doc strings working (e.g. functions) and showing up in VSCode
+  - `///` works but the comment shows up below a huge struct def, so not so useful.
+- [ ] Use Zig error handling
+  - one place: compiler errors like `consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.")`
 - [ ] (someday) code profiling / speed
   - could profile some of the open-source impls too, for comparison

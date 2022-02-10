@@ -24,6 +24,7 @@ pub const OpCode = enum(usize) {
     OpLess,
     OpPrint,
     OpPop,
+    OpDefineGlobal,
 };
 
 // fn makeChunk(allocator: Allocator) !*Chunk {
@@ -114,12 +115,7 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
             return simpleInstruction("OP_RETURN", offset);
         },
         .OpConstant => {
-            print("OP_CONSTANT          ", .{});
-            const constantIdx = chunk.code.items[offset + 1];
-            print("{:04} -- ", .{constantIdx});
-            printValue(chunk.values.items[constantIdx]);
-            print("\n", .{});
-            return offset + 2;
+            return constantInstruction("OP_CONSTANT", chunk, offset);
         },
         .OpNegate => {
             print("OP_NEGATE            ", .{});
@@ -168,17 +164,37 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
         .OpPop => {
             return simpleInstruction("OP_POP", offset);
         },
+        .OpDefineGlobal => {
+            return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
+        },
     }
 }
 
-fn simpleInstruction(name: []const u8, offset: usize) usize {
+fn printName(name: []const u8) void {
     print("{s}", .{name});
     // TODO: hacky fixed width
+    // use string formatting. may need bufPrint
+    // https://ziglearn.org/chapter-2/#advanced-formatting
     var i: usize = 0;
     while (i < 16 - name.len) {
         print(" ", .{});
         i += 1;
     }
+}
+
+fn constantInstruction(name: []const u8, chunk: Chunk, offset: usize) usize {
+    printName(name);
+
+    const constantIdx = chunk.code.items[offset + 1];
+    print("{:04} -- ", .{constantIdx});
+    printValue(chunk.values.items[constantIdx]);
+    print("\n", .{});
+
+    return offset + 2;
+}
+
+fn simpleInstruction(name: []const u8, offset: usize) usize {
+    printName(name);
     print("\n", .{});
     return offset + 1;
 }

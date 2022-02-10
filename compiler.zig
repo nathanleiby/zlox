@@ -15,6 +15,7 @@ const TokenType = @import("./scanner.zig").TokenType;
 const Value = @import("./value.zig").Value;
 
 const ObjManager = @import("./object.zig").ObjManager;
+const ObjString = @import("./object.zig").ObjString;
 
 const MAX_CONSTANTS = 256;
 
@@ -126,7 +127,7 @@ pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !bool {
     advance(); // prime
     // scan tokens
     while (!match(TokenType.EOF)) {
-        declaration();
+        try declaration();
     }
 
     endCompiler();
@@ -159,8 +160,15 @@ fn check(ttype: TokenType) bool {
     return (parser.current.ttype == ttype);
 }
 
-fn declaration() void {
-    statement();
+////////////////////
+// Declarations
+////////////////////
+fn declaration() !void {
+    if (match(TokenType.VAR)) {
+        try varDeclaration();
+    } else {
+        statement();
+    }
 
     if (parser.panicMode) {
         // we hit a compile error while parsing the previous statement.
@@ -169,6 +177,37 @@ fn declaration() void {
     }
 }
 
+fn varDeclaration() !void {
+    const global = try parseVariable("Expect variable name");
+    if (match(TokenType.EQUAL)) {
+        expression();
+    } else {
+        emitByte(@enumToInt(OpCode.OpNil));
+    }
+
+    consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
+    defineVariable(global);
+}
+
+fn parseVariable(errorMessage: []const u8) !u8 {
+    consume(TokenType.IDENTIFIER, errorMessage);
+    return try identifierConstant(parser.previous);
+}
+
+fn identifierConstant(token: Token) !u8 {
+    const ts = tokenString(token);
+    var s = try objManager.copyString(ts);
+    return makeConstant(Value{ .objString = s });
+}
+
+fn defineVariable(constantsRef: u8) void {
+    // store a reference to the variable in the constants table
+    emitBytes(@enumToInt(OpCode.OpDefineGlobal), constantsRef);
+}
+
+////////////////////
+// Statements
+////////////////////
 fn statement() void {
     if (match(TokenType.PRINT)) {
         printStatement();
@@ -401,7 +440,7 @@ fn errorAt(token: *Token, message: []const u8) void {
     } else if (token.ttype == TokenType.ERROR) {
         // do nothing
     } else {
-        print(" at '{s}'", .{getScanner().source[token.start .. token.start + token.length]});
+        print(" at '{s}'", .{tokenString(token.*)});
     }
 
     print(": {s}\n", .{message});
