@@ -441,3 +441,22 @@ test "virtual machine can print()" {
     const result = try vm.interpret(source);
     try expect(result == InterpretResult.InterpretOk);
 }
+
+test "virtual machine can uses interned strings" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
+
+    const chars: []const u8 = (
+        \\"foo";
+        \\"foo";
+        \\"foobar";
+        \\"foo" + "bar";
+        \\"foobar";
+    );
+
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
+
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretOk);
+}
