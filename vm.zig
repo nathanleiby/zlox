@@ -246,8 +246,19 @@ pub const VM = struct {
                     _ = self.stack.pop();
                 },
                 .OpDefineGlobal => {
-                    try self.objManager.globals.put(self.readString(), self.peek(0));
+                    const name = self.readString();
+                    try self.objManager.globals.put(name, self.peek(0));
                     _ = self.stack.pop();
+                },
+                .OpGetGlobal => {
+                    const name = self.readString();
+                    if (self.objManager.globals.get(name)) |val| {
+                        try self.stack.append(val);
+                    } else {
+                        // TODO: dynamically create a string and pass in name
+                        self.runtimeError("Undefined variable 'TODO:passVarName'.");
+                        return InterpretResult.InterpretRuntimeError;
+                    }
                 },
             }
         }

@@ -48,6 +48,10 @@ const ParseRule = struct {
     precedence: Precedence,
 };
 
+// TODO: refactor so parser fns can error out. right now I'm using catch {} to workaround
+// const ParseError = error {};
+// const ParseFn = fn () ParseError!void;
+
 const ParseFn = fn () void;
 
 const numRules = 40;
@@ -73,7 +77,7 @@ fn initRules() void {
     rules[@enumToInt(TokenType.GREATER_EQUAL)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_COMPARISON };
     rules[@enumToInt(TokenType.LESS)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_COMPARISON };
     rules[@enumToInt(TokenType.LESS_EQUAL)] = ParseRule{ .prefix = undefined, .infix = binary, .precedence = Precedence.PREC_COMPARISON };
-    rules[@enumToInt(TokenType.IDENTIFIER)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.IDENTIFIER)] = ParseRule{ .prefix = variable, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.STRING)] = ParseRule{ .prefix = string, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.NUMBER)] = ParseRule{ .prefix = number, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.AND)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
@@ -272,6 +276,18 @@ fn string() void {
     };
     const v = Value{ .objString = s };
     emitConstant(v);
+}
+
+fn variable() void {
+    // TODO: handle errors properly
+    namedVariable(parser.previous) catch {
+        print("FIXME: handle errors properly for variable()", .{});
+    };
+}
+
+fn namedVariable(token: Token) !void {
+    const arg = try identifierConstant(token);
+    emitBytes(@enumToInt(OpCode.OpGetGlobal), arg);
 }
 
 fn unary() void {

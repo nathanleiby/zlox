@@ -25,6 +25,7 @@ pub const OpCode = enum(usize) {
     OpPrint,
     OpPop,
     OpDefineGlobal,
+    OpGetGlobal,
 };
 
 pub const Chunk = struct {
@@ -133,6 +134,9 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
         },
         .OpDefineGlobal => {
             return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
+        },
+        .OpGetGlobal => {
+            return constantInstruction("OP_GET_GLOBAL", chunk, offset);
         },
     }
 }
