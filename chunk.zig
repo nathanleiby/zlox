@@ -27,39 +27,6 @@ pub const OpCode = enum(usize) {
     OpDefineGlobal,
 };
 
-// fn makeChunk(allocator: Allocator) !*Chunk {
-//     const c: *Chunk = try allocator.create(Chunk);
-//     c.*.code = &std.ArrayList(usize).init(allocator);
-//     c.*.lines = &std.ArrayList(usize).init(allocator);
-//     c.*.values = &std.ArrayList(Value).init(allocator);
-//     return c;
-// }
-
-// pub const ChunkV2 = struct {
-//     code: std.ArrayList(usize),
-//     lines: std.ArrayList(usize),
-//     values: std.ArrayList(Value),
-
-//     pub fn init(allocator: Allocator) !*ChunkV2 {
-//         const c: *ChunkV2 = try allocator.create(ChunkV2);
-//         c.code = std.ArrayList(usize).init(allocator);
-//         c.lines = std.ArrayList(usize).init(allocator);
-//         c.values = std.ArrayList(Value).init(allocator);
-//         return c;
-//     }
-// };
-
-// test "chunk2" {
-//     const allocator = std.testing.allocator;
-//     const out = try ChunkV2.init(allocator);
-//     try out.code.append(1);
-//     try out.code.append(2);
-//     print("out: {*}\n", .{out});
-//     // print("{any}\n", .{slice});
-//     out.code.deinit();
-//     allocator.destroy(out);
-// }
-
 pub const Chunk = struct {
     code: std.ArrayList(usize),
     lines: std.ArrayList(usize),
