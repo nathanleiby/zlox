@@ -252,6 +252,7 @@ fn identifierConstant(token: Token) !u8 {
 fn defineVariable(constantsRef: u8) void {
     // handle local variables
     if (compiler.scopeDepth > 0) {
+        markInitialized();
         return;
     }
 
@@ -299,9 +300,13 @@ fn addLocal(token: Token) void {
 
     const local: *Local = &compiler.locals[compiler.localCount];
     local.token = token;
-    local.depth = compiler.scopeDepth;
+    local.depth = -1; // -1 denotes uninitialized
 
     compiler.localCount += 1;
+}
+
+fn markInitialized() void {
+    compiler.locals[compiler.localCount - 1].depth = compiler.scopeDepth;
 }
 
 ////////////////////
@@ -434,7 +439,11 @@ fn resolveLocal(compilerInstance: Compiler, token: Token) compilerError!usize {
     var i: usize = compilerInstance.localCount;
     while (i >= 0) {
         const local = compilerInstance.locals[i];
+
         if (identifiersEqual(local.token, token)) {
+            if (local.depth == -1) {
+                err("Can't read local variable in its own initializer.");
+            }
             return i;
         }
 
