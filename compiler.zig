@@ -24,6 +24,10 @@ pub fn setObjManager(om: *ObjManager) void {
     objManager = om;
 }
 
+const compilerError = error{
+    TODO,
+};
+
 // Debugging flags
 const DEBUG_PRINT_CODE = true; // TODO: try out comptime
 const DEBUG_MODE = false;
@@ -196,11 +200,12 @@ fn check(ttype: TokenType) bool {
 ////////////////////
 // Declarations
 ////////////////////
-fn declaration() !void {
+// TODO: using compilerError for now to work around https://github.com/ziglang/zig/issues/2971
+fn declaration() compilerError!void {
     if (match(TokenType.VAR)) {
-        try varDeclaration();
+        varDeclaration() catch return compilerError.TODO;
     } else {
-        statement();
+        statement() catch return compilerError.TODO;
     }
 
     if (parser.panicMode) {
@@ -241,12 +246,32 @@ fn defineVariable(constantsRef: u8) void {
 ////////////////////
 // Statements
 ////////////////////
-fn statement() void {
+fn statement() !void {
     if (match(TokenType.PRINT)) {
         printStatement();
+    } else if (match(TokenType.LEFT_BRACE)) {
+        beginScope();
+        try block();
+        endScope();
     } else {
         expressionStatement();
     }
+}
+
+fn beginScope() void {
+    compiler.scopeDepth += 1;
+}
+
+fn endScope() void {
+    compiler.scopeDepth -= 1;
+}
+
+fn block() !void {
+    while (!check(TokenType.RIGHT_BRACE) and !check(TokenType.EOF)) {
+        try declaration();
+    }
+
+    consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
 }
 
 fn printStatement() void {
