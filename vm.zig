@@ -135,9 +135,9 @@ pub const VM = struct {
                 print("\n", .{});
             }
 
-            const byte = self.chunk.code.items[self.ip];
+            const byte = self.readByte();
             const instruction = @intToEnum(OpCode, byte);
-            self.ip += 1;
+
             switch (instruction) {
                 .OpReturn => {
                     return InterpretResult.InterpretOk;
