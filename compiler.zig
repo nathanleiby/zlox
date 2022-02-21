@@ -562,7 +562,7 @@ fn endCompiler() void {
     emitReturn();
     if (DEBUG_PRINT_CODE) {
         if (!parser.hadError) {
-            disassembleChunk(currentChunk().*, "code");
+            currentChunk().disassemble("code");
         }
     }
 }

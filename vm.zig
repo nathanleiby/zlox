@@ -5,8 +5,6 @@ const Allocator = std.mem.Allocator;
 const expect = std.testing.expect;
 
 const Chunk = @import("./chunk.zig").Chunk;
-const disassembleChunk = @import("./chunk.zig").disassembleChunk;
-const disassembleInstruction = @import("./chunk.zig").disassembleInstruction;
 const OpCode = @import("./chunk.zig").OpCode;
 
 const Value = @import("./value.zig").Value;
@@ -171,7 +169,7 @@ pub const VM = struct {
         while (true) {
             if (DEBUG_TRACE_EXECUTION) {
                 if (DEBUG_TRACE_EXECUTION_INCLUDE_INSTRUCTIONS) {
-                    _ = disassembleInstruction(self.chunk, self.ip);
+                    _ = self.chunk.disassembleInstruction(self.ip);
                 }
 
                 // print the stack
@@ -335,7 +333,7 @@ test "virtual machine can negate a value" {
     try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNum);
 
     // disassemble
-    disassembleChunk(chunk.*, "chunk");
+    chunk.disassemble("chunk");
 
     // interpret
     const result = try vm.run();
@@ -375,7 +373,7 @@ test "virtual machine can do some binary ops (add and divide)" {
     try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
 
     // disassemble
-    disassembleChunk(chunk.*, "chunk");
+    chunk.disassemble("chunk");
 
     // interpret
     const result = try vm.run();
@@ -413,7 +411,7 @@ test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
     try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
 
     // disassemble
-    disassembleChunk(chunk.*, "chunk");
+    chunk.disassemble("chunk");
 
     // interpret
     const result = try vm.run();

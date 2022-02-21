@@ -59,99 +59,99 @@ pub const Chunk = struct {
         try self.values.append(value);
         return self.values.items.len - 1;
     }
+
+    pub fn disassemble(chunk: Chunk, name: []const u8) void {
+        print("== {s} ==\n", .{name});
+
+        var offset: usize = 0;
+        while (offset < chunk.code.items.len) {
+            offset = disassembleInstruction(chunk, offset);
+        }
+    }
+
+    pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
+        const byte = chunk.code.items[offset];
+        print("{:04} ", .{offset});
+        // line
+        if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
+            print("   | ", .{});
+        } else {
+            print("{:04} ", .{chunk.lines.items[offset]});
+        }
+
+        const item = @intToEnum(OpCode, byte);
+        switch (item) {
+            .OpReturn => {
+                return simpleInstruction("OP_RETURN", offset);
+            },
+            .OpConstant => {
+                return constantInstruction("OP_CONSTANT", chunk, offset);
+            },
+            .OpNegate => {
+                print("OP_NEGATE            ", .{});
+                const constantIdx = chunk.code.items[offset + 1];
+                print("{:04} -- ", .{constantIdx});
+                print("{d}", .{chunk.values.items[constantIdx]});
+                print("\n", .{});
+                return offset + 1;
+            },
+            .OpAdd => {
+                return simpleInstruction("OP_ADD", offset);
+            },
+            .OpSubtract => {
+                return simpleInstruction("OP_SUBTRACT", offset);
+            },
+            .OpMultiply => {
+                return simpleInstruction("OP_MULTIPLY", offset);
+            },
+            .OpDivide => {
+                return simpleInstruction("OP_DIVIDE", offset);
+            },
+            .OpNil => {
+                return simpleInstruction("OP_NIL", offset);
+            },
+            .OpTrue => {
+                return simpleInstruction("OP_TRUE", offset);
+            },
+            .OpFalse => {
+                return simpleInstruction("OP_FALSE", offset);
+            },
+            .OpNot => {
+                return simpleInstruction("OP_NOT", offset);
+            },
+            .OpGreater => {
+                return simpleInstruction("OP_GREATER", offset);
+            },
+            .OpLess => {
+                return simpleInstruction("OP_LESS", offset);
+            },
+            .OpEqual => {
+                return simpleInstruction("OP_EQUAL", offset);
+            },
+            .OpPrint => {
+                return simpleInstruction("OP_PRINT", offset);
+            },
+            .OpPop => {
+                return simpleInstruction("OP_POP", offset);
+            },
+            .OpDefineGlobal => {
+                return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
+            },
+            .OpGetGlobal => {
+                return constantInstruction("OP_GET_GLOBAL", chunk, offset);
+            },
+            .OpSetGlobal => {
+                return constantInstruction("OP_SET_GLOBAL", chunk, offset);
+            },
+            .OpGetLocal => {
+                return byteInstruction("OP_GET_LOCAL", chunk, offset);
+            },
+            .OpSetLocal => {
+                return byteInstruction("OP_SET_LOCAL", chunk, offset);
+            },
+        }
+    }
 };
-
-pub fn disassembleChunk(chunk: Chunk, name: []const u8) void {
-    print("== {s} ==\n", .{name});
-
-    var offset: usize = 0;
-    while (offset < chunk.code.items.len) {
-        offset = disassembleInstruction(chunk, offset);
-    }
-}
-
-pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
-    const byte = chunk.code.items[offset];
-    print("{:04} ", .{offset});
-    // line
-    if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
-        print("   | ", .{});
-    } else {
-        print("{:04} ", .{chunk.lines.items[offset]});
-    }
-
-    const item = @intToEnum(OpCode, byte);
-    switch (item) {
-        .OpReturn => {
-            return simpleInstruction("OP_RETURN", offset);
-        },
-        .OpConstant => {
-            return constantInstruction("OP_CONSTANT", chunk, offset);
-        },
-        .OpNegate => {
-            print("OP_NEGATE            ", .{});
-            const constantIdx = chunk.code.items[offset + 1];
-            print("{:04} -- ", .{constantIdx});
-            print("{d}", .{chunk.values.items[constantIdx]});
-            print("\n", .{});
-            return offset + 1;
-        },
-        .OpAdd => {
-            return simpleInstruction("OP_ADD", offset);
-        },
-        .OpSubtract => {
-            return simpleInstruction("OP_SUBTRACT", offset);
-        },
-        .OpMultiply => {
-            return simpleInstruction("OP_MULTIPLY", offset);
-        },
-        .OpDivide => {
-            return simpleInstruction("OP_DIVIDE", offset);
-        },
-        .OpNil => {
-            return simpleInstruction("OP_NIL", offset);
-        },
-        .OpTrue => {
-            return simpleInstruction("OP_TRUE", offset);
-        },
-        .OpFalse => {
-            return simpleInstruction("OP_FALSE", offset);
-        },
-        .OpNot => {
-            return simpleInstruction("OP_NOT", offset);
-        },
-        .OpGreater => {
-            return simpleInstruction("OP_GREATER", offset);
-        },
-        .OpLess => {
-            return simpleInstruction("OP_LESS", offset);
-        },
-        .OpEqual => {
-            return simpleInstruction("OP_EQUAL", offset);
-        },
-        .OpPrint => {
-            return simpleInstruction("OP_PRINT", offset);
-        },
-        .OpPop => {
-            return simpleInstruction("OP_POP", offset);
-        },
-        .OpDefineGlobal => {
-            return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
-        },
-        .OpGetGlobal => {
-            return constantInstruction("OP_GET_GLOBAL", chunk, offset);
-        },
-        .OpSetGlobal => {
-            return constantInstruction("OP_SET_GLOBAL", chunk, offset);
-        },
-        .OpGetLocal => {
-            return byteInstruction("OP_GET_LOCAL", chunk, offset);
-        },
-        .OpSetLocal => {
-            return byteInstruction("OP_SET_LOCAL", chunk, offset);
-        },
-    }
-}
 
 fn printName(name: []const u8) void {
     print("{s}", .{name});
@@ -221,6 +221,5 @@ test "chunk" {
     try chunk.write(@enumToInt(OpCode.OpFalse), fakeLineNumber);
     try chunk.write(@enumToInt(OpCode.OpNil), fakeLineNumber);
 
-    // disassemble
-    disassembleChunk(chunk.*, "chunk");
+    chunk.disassemble("chunk");
 }
