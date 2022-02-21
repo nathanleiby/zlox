@@ -382,11 +382,13 @@ fn ifStatement() !void {
     consume(TokenType.RIGHT_PAREN, "Expect ')' after 'if' condition.");
 
     var thenJump = emitJump(OpCode.OpJumpIfFalse);
+    emitByte(@enumToInt(OpCode.OpPop)); // pop off condition expression's value
     try statement();
 
     var elseJump = emitJump(OpCode.OpJump);
 
     patchJump(thenJump);
+    emitByte(@enumToInt(OpCode.OpPop)); // pop off condition expression's value
 
     // Handle 'else' (optional)
     if (match(TokenType.ELSE)) {
