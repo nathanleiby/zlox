@@ -495,3 +495,41 @@ test "virtual machine can define and set a local var" {
     const result = try vm.interpret(source);
     try expect(result == InterpretResult.InterpretOk);
 }
+
+test "virtual machine should error if local var is redeclared within same scope" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
+
+    const chars: []const u8 = (
+        \\{
+        \\var a = "first";
+        \\var a = "second";
+        \\}
+    );
+
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
+
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretCompileError);
+}
+
+test "virtual machine should error if var references itself in its initializerd" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
+
+    const chars: []const u8 = (
+        \\{
+        \\var a = "outer";
+        \\{
+        \\var a = a;
+        \\}
+        \\}
+    );
+
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
+
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretCompileError);
+}

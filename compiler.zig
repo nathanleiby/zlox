@@ -298,10 +298,10 @@ fn addLocal(token: Token) void {
     }
 
     const local: *Local = &compiler.locals[compiler.localCount];
+    compiler.localCount += 1;
     local.token = token;
     local.depth = -1; // -1 denotes uninitialized
 
-    compiler.localCount += 1;
 }
 
 fn markInitialized() void {
