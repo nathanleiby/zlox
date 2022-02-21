@@ -26,6 +26,7 @@ pub fn setObjManager(om: *ObjManager) void {
 
 const compilerError = error{
     TODO,
+    LocalNotFound,
 };
 
 // Debugging flags
@@ -280,10 +281,7 @@ fn declareVariable() void {
             break;
         }
 
-        const localString = tokenString(local.token);
-        const curTokenString = tokenString(curToken);
-
-        if (std.mem.eql(u8, localString, curTokenString)) {
+        if (identifiersEqual(local.token, curToken)) {
             err("A variable already exists with this name in this scope.");
         }
 
@@ -409,13 +407,47 @@ fn variable(canAssign: bool) void {
 }
 
 fn namedVariable(token: Token, canAssign: bool) !void {
-    const arg = try identifierConstant(token);
+    var getOp: OpCode = undefined;
+    var setOp: OpCode = undefined;
+    var arg: u8 = 0;
+
+    if (resolveLocal(compiler, token)) |localArg| {
+        arg = @truncate(u8, localArg);
+        getOp = OpCode.OpGetGlobal;
+        setOp = OpCode.OpSetGlobal;
+    } else |_| { // ignore the error
+        arg = try identifierConstant(token);
+        getOp = OpCode.OpGetLocal;
+        setOp = OpCode.OpSetLocal;
+    }
+
     if (canAssign and match(TokenType.EQUAL)) {
         expression();
-        emitBytes(@enumToInt(OpCode.OpSetGlobal), arg);
+        emitBytes(@enumToInt(setOp), arg);
     } else {
-        emitBytes(@enumToInt(OpCode.OpGetGlobal), arg);
+        emitBytes(@enumToInt(getOp), arg);
     }
+}
+
+// TODO: Why would this fn take the compiler as an arg whereas it gets passed in as a global?
+fn resolveLocal(compilerInstance: Compiler, token: Token) compilerError!usize {
+    var i: usize = compilerInstance.localCount;
+    while (i >= 0) {
+        const local = compilerInstance.locals[i];
+        if (identifiersEqual(local.token, token)) {
+            return i;
+        }
+
+        i -= 1;
+    }
+
+    return compilerError.LocalNotFound;
+}
+
+fn identifiersEqual(a: Token, b: Token) bool {
+    const aString = tokenString(a);
+    const bString = tokenString(b);
+    return std.mem.eql(u8, aString, bString);
 }
 
 fn unary(_: bool) void {

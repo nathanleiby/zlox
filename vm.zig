@@ -110,17 +110,18 @@ pub const VM = struct {
         return result;
     }
 
+    // peek(), push(), and pop() are the core operations on the VM's stack
     fn peek(self: *VM, distance: usize) Value {
         return self.stack.items[self.stack.items.len - 1 - distance];
     }
 
-    // fn push(self: *VM, v: Value) !void {
-    //     try self.stack.append(v);
-    // }
+    fn push(self: *VM, v: Value) !void {
+        try self.stack.append(v);
+    }
 
-    // fn pop(self: *VM) Value {
-    //     return self.stack.pop();
-    // }
+    fn pop(self: *VM) Value {
+        return self.stack.pop();
+    }
 
     fn isValidBinaryOp(self: *VM) bool {
         if (!(self.peek(0).isNumber() and self.peek(1).isNumber())) {
@@ -274,6 +275,14 @@ pub const VM = struct {
                         return InterpretResult.InterpretRuntimeError;
                     }
                 },
+                .OpGetLocal => {
+                    const slot = self.readByte();
+                    try self.push(self.stack.items[slot]);
+                },
+                .OpSetLocal => {
+                    const slot = self.readByte();
+                    self.stack.items[slot] = self.peek(0);
+                },
             }
         }
 
@@ -284,6 +293,12 @@ pub const VM = struct {
         const constantIdx = self.chunk.code.items[self.ip];
         self.ip += 1;
         return self.chunk.values.items[constantIdx];
+    }
+
+    fn readByte(self: *VM) usize {
+        const b = self.chunk.code.items[self.ip];
+        self.ip += 1;
+        return b;
     }
 
     fn readString(self: *VM) []const u8 {

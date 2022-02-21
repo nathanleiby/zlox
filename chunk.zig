@@ -7,7 +7,7 @@ const expect = std.testing.expect;
 const Value = @import("./value.zig").Value;
 const printValue = @import("./value.zig").printValue;
 
-pub const OpCode = enum(usize) {
+pub const OpCode = enum(u8) {
     OpReturn,
     OpConstant,
     OpNil,
@@ -27,6 +27,8 @@ pub const OpCode = enum(usize) {
     OpDefineGlobal,
     OpGetGlobal,
     OpSetGlobal,
+    OpGetLocal,
+    OpSetLocal,
 };
 
 pub const Chunk = struct {
@@ -141,7 +143,13 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
         },
         .OpSetGlobal => {
             return constantInstruction("OP_SET_GLOBAL", chunk, offset);
-        }
+        },
+        .OpGetLocal => {
+            return byteInstruction("OP_GET_LOCAL", chunk, offset);
+        },
+        .OpSetLocal => {
+            return byteInstruction("OP_SET_LOCAL", chunk, offset);
+        },
     }
 }
 
@@ -172,6 +180,18 @@ fn simpleInstruction(name: []const u8, offset: usize) usize {
     printName(name);
     print("\n", .{});
     return offset + 1;
+}
+
+fn byteInstruction(name: []const u8, chunk: Chunk, offset: usize) usize {
+    printName(name);
+
+    // When we disassemble these instructions, we can’t show the variable’s name like we could with globals.
+    // Instead, we just show the slot number.
+    const slot = chunk.code.items[offset + 1];
+    print("{:04}", .{slot});
+    print("\n", .{});
+
+    return offset + 2;
 }
 
 test "chunk" {
