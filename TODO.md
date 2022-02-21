@@ -1,3 +1,5 @@
+- [ ] `<` works but `<=` doesn't seem to work
+  - ... perhaps a bug due to popping numbers off the stack?
 - [ ] Do memory allocator as described in the book
   - likely need a wrapper around use of allocator
 - [ ] Allow easily setting debug flags at compilation time

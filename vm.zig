@@ -236,11 +236,17 @@ pub const VM = struct {
                 },
                 .OpJump => {
                     const offset = self.readShort();
+                    // jump forward
                     self.ip += offset;
                 },
                 .OpJumpIfFalse => {
                     const offset = self.readShort();
                     if (self.peek(0).isFalsey()) self.ip += offset;
+                },
+                .OpLoop => {
+                    const offset = self.readShort();
+                    // jump backward
+                    self.ip -= offset;
                 },
             }
         }

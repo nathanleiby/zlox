@@ -31,6 +31,7 @@ pub const OpCode = enum(u8) {
     OpSetLocal,
     OpJumpIfFalse,
     OpJump,
+    OpLoop,
 };
 
 pub const Chunk = struct {
@@ -156,6 +157,9 @@ pub const Chunk = struct {
             },
             .OpJumpIfFalse => {
                 return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
+            },
+            .OpLoop => {
+                return jumpInstruction("OP_LOOP", -1, chunk, offset);
             },
         }
     }

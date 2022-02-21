@@ -11,3 +11,9 @@ print (false or false or false); // false
 print (false and true); // false
 print (true and true and false);  // false
 print (true and true and true); // true
+
+var i = 0;
+while (i < 5) {
+    print i;
+    i = i + 1;
+}

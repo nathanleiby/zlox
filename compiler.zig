@@ -337,6 +337,8 @@ fn statement() compilerError!void {
         printStatement();
     } else if (match(TokenType.IF)) {
         ifStatement() catch return compilerError.TODO;
+    } else if (match(TokenType.WHILE)) {
+        whileStatement() catch return compilerError.TODO;
     } else if (match(TokenType.LEFT_BRACE)) {
         beginScope();
         block() catch return compilerError.TODO;
@@ -377,7 +379,7 @@ fn printStatement() void {
 fn ifStatement() !void {
     consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
     expression();
-    consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.");
+    consume(TokenType.RIGHT_PAREN, "Expect ')' after 'if' condition.");
 
     var thenJump = emitJump(OpCode.OpJumpIfFalse);
     try statement();
@@ -411,6 +413,34 @@ fn patchJump(offset: usize) void {
 
     currentChunk().code.items[offset] = (jump >> 8) & 0xff;
     currentChunk().code.items[offset + 1] = jump & 0xff;
+}
+
+fn whileStatement() !void {
+    const count = currentChunk().code.items.len;
+    const loopStart = count;
+
+    consume(TokenType.LEFT_PAREN, "Expect '(' after 'while'.");
+    expression();
+    consume(TokenType.RIGHT_PAREN, "Expect ')' after 'while' condition.");
+
+    var exitJump = emitJump(OpCode.OpJumpIfFalse);
+    emitByte(@enumToInt(OpCode.OpPop)); // pop off condition expressio's value if we enter the loop
+    try statement();
+    emitLoop(loopStart);
+
+    patchJump(exitJump);
+    emitByte(@enumToInt(OpCode.OpPop)); // pop off condition expression's value as we exit the loop
+}
+
+fn emitLoop(loopStart: usize) void {
+    emitByte(@enumToInt(OpCode.OpLoop));
+
+    const count = currentChunk().code.items.len;
+    var offset = count - loopStart + 2;
+    if (offset > U16_MAX) err("Loop body too large.");
+
+    emitByte(@truncate(u8, (offset >> 8) & 0xff));
+    emitByte(@truncate(u8, offset & 0xff));
 }
 
 fn expressionStatement() void {
