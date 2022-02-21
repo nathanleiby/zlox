@@ -1,0 +1,19 @@
+var x = "global var";
+
+{
+    var y = 0;
+    print y;
+
+    y = y + 1;
+    print y;
+
+    y = x;
+    print y;
+}
+
+{
+  var a = "outer";
+  {
+    var a = "inner";
+  }
+}

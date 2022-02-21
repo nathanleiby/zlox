@@ -528,3 +528,19 @@ test "virtual machine can define a global var" {
     const result = try vm.interpret(source);
     try expect(result == InterpretResult.InterpretOk);
 }
+
+test "virtual machine can define and set a local var" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
+
+    const chars: []const u8 = (
+        \\var x = "123";
+        \\{ var y = 456; y = y+1; y = x; }
+    );
+
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
+
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.InterpretOk);
+}
