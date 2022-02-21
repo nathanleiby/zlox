@@ -121,7 +121,32 @@ var parser = Parser{
     .panicMode = false,
 };
 
+const Local = struct {
+    name: Token,
+    depth: i32,
+};
+
+const U8_MAX = 255;
+const Compiler = struct {
+    locals: [U8_MAX + 1]Local,
+    localCount: u8,
+    scopeDepth: u16,
+
+    pub fn init() Compiler {
+        return Compiler{
+            .locals = [_]Local{Local{ .name = undefined, .depth = 0 }} ** (U8_MAX + 1),
+            .localCount = 0,
+            .scopeDepth = 0,
+        };
+    }
+};
+
+// TODO: use a class-like setup here instead of global var
+var compiler: Compiler = undefined;
+
 pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !bool {
+    compiler = Compiler.init();
+
     // startup -- could be comptime TODO
     initRules();
     setObjManager(om);
