@@ -88,6 +88,8 @@ pub const Scanner = struct {
                     while (scanner.peek() != '\n' and !scanner.isAtEnd()) {
                         _ = scanner.advance();
                     }
+                } else {
+                    return;
                 }
             } else {
                 return;
