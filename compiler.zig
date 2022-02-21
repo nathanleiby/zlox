@@ -418,12 +418,12 @@ fn namedVariable(token: Token, canAssign: bool) !void {
 
     if (resolveLocal(compiler, token)) |localArg| {
         arg = @truncate(u8, localArg);
-        getOp = OpCode.OpGetGlobal;
-        setOp = OpCode.OpSetGlobal;
-    } else |_| { // ignore the error
-        arg = try identifierConstant(token);
         getOp = OpCode.OpGetLocal;
         setOp = OpCode.OpSetLocal;
+    } else |_| { // ignore the error
+        arg = try identifierConstant(token);
+        getOp = OpCode.OpGetGlobal;
+        setOp = OpCode.OpSetGlobal;
     }
 
     if (canAssign and match(TokenType.EQUAL)) {
