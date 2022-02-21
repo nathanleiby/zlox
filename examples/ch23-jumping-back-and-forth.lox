@@ -12,8 +12,41 @@ print (false and true); // false
 print (true and true and false);  // false
 print (true and true and true); // true
 
+print "While loop test:";
 var i = 0;
 while (i < 5) {
     print i;
     i = i + 1;
 }
+
+
+print "For loop tests:";
+print "(1) fully populated clauses";
+{
+    var q = -5;
+    for (q = 0; q < 5; q = q + 1) {
+        print q;
+    }
+}
+
+print "(2) no initializer";
+var k = 0;
+for (; k < 5; k = k + 1) {
+    print k;
+}
+
+print "(3) no increment";
+for (var x = 0; x < 5;) {
+    print x;
+    x = x + 1;
+}
+
+
+print "(4) no increment or initializer";
+k = 0;
+for (; k < 5;) {
+    print k;
+    k = k + 1;
+}
+
+print "done";

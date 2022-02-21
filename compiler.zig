@@ -339,6 +339,8 @@ fn statement() compilerError!void {
         ifStatement() catch return compilerError.TODO;
     } else if (match(TokenType.WHILE)) {
         whileStatement() catch return compilerError.TODO;
+    } else if (match(TokenType.FOR)) {
+        forStatement() catch return compilerError.TODO;
     } else if (match(TokenType.LEFT_BRACE)) {
         beginScope();
         block() catch return compilerError.TODO;
@@ -401,13 +403,11 @@ fn emitJump(op: OpCode) usize {
     emitByte(@enumToInt(op));
     emitByte(0xff);
     emitByte(0xff);
-    const count = currentChunk().code.items.len;
-    return count - 2;
+    return currentChunk().count() - 2;
 }
 
 fn patchJump(offset: usize) void {
-    const count = currentChunk().code.items.len;
-    const jump = count - offset - 2;
+    const jump = currentChunk().count() - offset - 2;
 
     if (jump > U16_MAX) {
         err("Too much code to jump over.");
@@ -418,8 +418,7 @@ fn patchJump(offset: usize) void {
 }
 
 fn whileStatement() !void {
-    const count = currentChunk().code.items.len;
-    const loopStart = count;
+    const loopStart = currentChunk().count();
 
     consume(TokenType.LEFT_PAREN, "Expect '(' after 'while'.");
     expression();
@@ -434,11 +433,69 @@ fn whileStatement() !void {
     emitByte(@enumToInt(OpCode.OpPop)); // pop off condition expression's value as we exit the loop
 }
 
+fn forStatement() !void {
+    beginScope(); // If a for statement declares a variable, that variable should be scoped to the loop body
+    consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
+
+    // (1) For-loop "Initializer"
+    if (match(TokenType.SEMICOLON)) {
+        // No initializer.
+    } else if (match(TokenType.VAR)) {
+        try varDeclaration();
+    } else {
+        expressionStatement();
+    }
+
+    var loopStart = currentChunk().count();
+
+    // (2) For-loop "Condition"
+    var exitJump: usize = 0;
+    var hasExitJump = false;
+    if (match(TokenType.SEMICOLON)) {
+        // no condition, i.e. always true
+    } else {
+        expression();
+        consume(TokenType.SEMICOLON, "Expect ';' after 'for' loop condition.");
+
+        // Jump out of the loop if the condition is false.
+        exitJump = emitJump(OpCode.OpJumpIfFalse);
+        hasExitJump = true;
+        emitByte(@enumToInt(OpCode.OpPop)); // remove the condition expression's value
+    }
+
+    // (3) For-loop "Increment"
+    if (match(TokenType.RIGHT_PAREN)) {
+        // no increment
+    } else {
+        var bodyJump = emitJump(OpCode.OpJump);
+        var incrementStart = currentChunk().count();
+        expression();
+        emitByte(@enumToInt(OpCode.OpPop)); // remove the increment expression's value
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after 'for' clauses.");
+
+        emitLoop(loopStart);
+        loopStart = incrementStart;
+        patchJump(bodyJump);
+    }
+
+    // body of the for loop
+    try statement();
+
+    emitLoop(loopStart); // jump backwards to the loop condition
+
+    if (hasExitJump) {
+        // Patch the loop condition
+        patchJump(exitJump);
+        emitByte(@enumToInt(OpCode.OpPop)); // remove the condition expression's value
+    }
+
+    endScope();
+}
+
 fn emitLoop(loopStart: usize) void {
     emitByte(@enumToInt(OpCode.OpLoop));
 
-    const count = currentChunk().code.items.len;
-    var offset = count - loopStart + 2;
+    var offset = currentChunk().count() - loopStart + 2;
     if (offset > U16_MAX) err("Loop body too large.");
 
     emitByte(@truncate(u8, (offset >> 8) & 0xff));

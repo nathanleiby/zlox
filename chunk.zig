@@ -63,6 +63,10 @@ pub const Chunk = struct {
         return self.values.items.len - 1;
     }
 
+    pub fn count(self: *Chunk) usize {
+        return self.code.items.len;
+    }
+
     pub fn disassemble(chunk: Chunk, name: []const u8) void {
         print("== {s} ==\n", .{name});
 
