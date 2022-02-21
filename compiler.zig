@@ -5,10 +5,7 @@ const Chunk = @import("./chunk.zig").Chunk;
 const OpCode = @import("./chunk.zig").OpCode;
 const disassembleChunk = @import("./chunk.zig").disassembleChunk;
 
-const initScanner = @import("./scanner.zig").initScanner;
-const getScanner = @import("./scanner.zig").getScanner;
 const Scanner = @import("./scanner.zig").Scanner;
-const scanToken = @import("./scanner.zig").scanToken;
 const Token = @import("./scanner.zig").Token;
 const TokenType = @import("./scanner.zig").TokenType;
 
@@ -150,6 +147,7 @@ const Compiler = struct {
 
 // TODO: use a class-like setup here instead of global var
 var compiler: Compiler = undefined;
+var scanner: Scanner = undefined;
 
 pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !bool {
     compiler = Compiler.init();
@@ -158,7 +156,8 @@ pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !bool {
     initRules();
     setObjManager(om);
 
-    initScanner(source);
+    scanner = Scanner.init(source);
+
     compilingChunk = chunk;
 
     parser.hadError = false;
@@ -607,7 +606,7 @@ fn advance() void {
     parser.previous = parser.current;
 
     while (true) {
-        parser.current = scanToken();
+        parser.current = scanner.scanToken();
         if (DEBUG_MODE) print("advance() .previous = {any} .current = {any}\n", .{ parser.previous, parser.current });
         if (parser.current.ttype != TokenType.ERROR) break;
 
@@ -645,6 +644,7 @@ fn emitByte(byte: u8) void {
     currentChunk().write(byte, parser.previous.line) catch {};
 }
 
+// tokenString uses the source code's text to look up a string
 fn tokenString(token: Token) []const u8 {
-    return getScanner().source[token.start .. token.start + token.length];
+    return scanner.source[token.start .. token.start + token.length];
 }

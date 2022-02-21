@@ -1,3 +1,7 @@
+- [ ] Do memory allocator as described in the book
+  - likely need a wrapper around use of allocator
+- [ ] Allow easily setting debug flags at compilation time
+  - currently, they are hard-coded to true/false in code
 - [ ] Try out a zig linter https://github.com/nektro/ziglint
 - [ ] Make Enum naming more consistent and succinct
   - not sure what's the Zig convention for enum naming. Shoutcase? Camelcase?
