@@ -437,7 +437,7 @@ fn namedVariable(token: Token, canAssign: bool) !void {
 // TODO: Why would this fn take the compiler as an arg whereas it gets passed in as a global?
 fn resolveLocal(compilerInstance: Compiler, token: Token) compilerError!usize {
     var i: usize = compilerInstance.localCount;
-    while (i >= 0) {
+    while (true) {
         const local = compilerInstance.locals[i];
 
         if (identifiersEqual(local.token, token)) {
@@ -447,6 +447,9 @@ fn resolveLocal(compilerInstance: Compiler, token: Token) compilerError!usize {
             return i;
         }
 
+        if (i == 0) {
+            break;
+        }
         i -= 1;
     }
 
