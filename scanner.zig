@@ -89,7 +89,6 @@ pub const Scanner = struct {
                         _ = scanner.advance();
                     }
                 }
-                return;
             } else {
                 return;
             }
