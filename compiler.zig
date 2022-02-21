@@ -126,19 +126,21 @@ var parser = Parser{
 };
 
 const Local = struct {
-    name: Token,
-    depth: i32,
+    token: Token,
+    depth: i16,
 };
 
 const U8_MAX = 255;
+const U8_COUNT = U8_MAX + 1;
+
 const Compiler = struct {
-    locals: [U8_MAX + 1]Local,
+    locals: [U8_COUNT]Local,
     localCount: u8,
-    scopeDepth: u16,
+    scopeDepth: i16,
 
     pub fn init() Compiler {
         return Compiler{
-            .locals = [_]Local{Local{ .name = undefined, .depth = 0 }} ** (U8_MAX + 1),
+            .locals = [_]Local{Local{ .token = undefined, .depth = 0 }} ** U8_COUNT,
             .localCount = 0,
             .scopeDepth = 0,
         };
@@ -229,6 +231,14 @@ fn varDeclaration() !void {
 
 fn parseVariable(errorMessage: []const u8) !u8 {
     consume(TokenType.IDENTIFIER, errorMessage);
+
+    // handle local variables
+    declareVariable();
+    if (compiler.scopeDepth > 0) {
+        return 0;
+    }
+
+    // handle global variables
     return try identifierConstant(parser.previous);
 }
 
@@ -239,8 +249,61 @@ fn identifierConstant(token: Token) !u8 {
 }
 
 fn defineVariable(constantsRef: u8) void {
+    // handle local variables
+    if (compiler.scopeDepth > 0) {
+        return;
+    }
+
     // store a reference to the variable in the constants table
     emitBytes(@enumToInt(OpCode.OpDefineGlobal), constantsRef);
+}
+
+fn declareVariable() void {
+    // handle globle variables
+    if (compiler.scopeDepth == 0) {
+        return;
+    }
+
+    const curToken = parser.previous;
+
+    // Check if we're declaring the same varible again within the current scope, i.e.
+    // {
+    //     var a = "first";
+    //     var a = "second";
+    // }
+    // This should cause an error.
+    var i: usize = 0;
+    while (i < compiler.localCount) {
+        const local = compiler.locals[i];
+        if (local.depth != -1 and local.depth < compiler.scopeDepth) {
+            // we've visited all the local variables that could collide
+            break;
+        }
+
+        const localString = tokenString(local.token);
+        const curTokenString = tokenString(curToken);
+
+        if (std.mem.eql(u8, localString, curTokenString)) {
+            err("A variable already exists with this name in this scope.");
+        }
+
+        i += 1;
+    }
+
+    addLocal(curToken);
+}
+
+fn addLocal(token: Token) void {
+    if (compiler.localCount == U8_COUNT) {
+        err("Too many local variables in function.");
+        return;
+    }
+
+    const local: *Local = &compiler.locals[compiler.localCount];
+    local.token = token;
+    local.depth = compiler.scopeDepth;
+
+    compiler.localCount += 1;
 }
 
 ////////////////////
@@ -264,6 +327,12 @@ fn beginScope() void {
 
 fn endScope() void {
     compiler.scopeDepth -= 1;
+
+    // when local variables leave scope, remove them from the stack
+    while (compiler.localCount > 0 and compiler.locals[compiler.localCount - 1].depth > compiler.scopeDepth) {
+        emitByte(@enumToInt(OpCode.OpPop));
+        compiler.localCount -= 1;
+    }
 }
 
 fn block() !void {
