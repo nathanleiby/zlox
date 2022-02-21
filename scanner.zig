@@ -1,7 +1,5 @@
 const std = @import("std");
 const print = std.debug.print;
-// TODO: consider dep injecting this, so i can use a test one too
-const allocator = std.heap.page_allocator;
 const expect = std.testing.expect;
 
 const DEBUG_PRINT_TOKENS = true;
@@ -60,32 +58,6 @@ pub const Token = struct {
     length: usize,
     line: usize,
 };
-
-// fn scanTokens() void {
-//     var line: usize = 0;
-//     while (true) {
-//         const token: Token = scanToken();
-
-//         if (DEBUG_PRINT_TOKENS) {
-//             if (token.line != line) {
-//                 print("line={d} ", .{token.line});
-//                 //   print("%4d ", .{token.line});
-//                 line = token.line;
-//             } else {
-//                 print("   | ", .{});
-//             }
-
-//             if (token.start + token.length < scanner.source.len) {
-//                 print("ttype={d} '{s}'\n", .{ token.ttype, scanner.source[token.start .. token.start + token.length] });
-//             } else {
-//                 print("ttype={d}\n", .{token.ttype});
-//             }
-//         }
-
-//         // TODO: we don't yet emit this?
-//         if (token.ttype == TokenType.EOF) break;
-//     }
-// }
 
 fn skipWhitespace() void {
     while (!isAtEnd()) {
