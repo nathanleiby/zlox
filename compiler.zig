@@ -86,7 +86,7 @@ fn initRules() void {
     rules[@enumToInt(TokenType.IDENTIFIER)] = ParseRule{ .prefix = variable, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.STRING)] = ParseRule{ .prefix = string, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.NUMBER)] = ParseRule{ .prefix = number, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.AND)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.AND)] = ParseRule{ .prefix = undefined, .infix = logicalAnd, .precedence = Precedence.PREC_AND };
     rules[@enumToInt(TokenType.CLASS)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.ELSE)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.FALSE)] = ParseRule{ .prefix = literal, .infix = undefined, .precedence = Precedence.PREC_NONE };
@@ -94,7 +94,7 @@ fn initRules() void {
     rules[@enumToInt(TokenType.FUN)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.IF)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.NIL)] = ParseRule{ .prefix = literal, .infix = undefined, .precedence = Precedence.PREC_NONE };
-    rules[@enumToInt(TokenType.OR)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
+    rules[@enumToInt(TokenType.OR)] = ParseRule{ .prefix = undefined, .infix = logicalOr, .precedence = Precedence.PREC_OR };
     rules[@enumToInt(TokenType.PRINT)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.RETURN)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
     rules[@enumToInt(TokenType.SUPER)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.PREC_NONE };
@@ -307,6 +307,26 @@ fn addLocal(token: Token) void {
 
 fn markInitialized() void {
     compiler.locals[compiler.localCount - 1].depth = compiler.scopeDepth;
+}
+
+fn logicalAnd(_: bool) void {
+    var endJump = emitJump(OpCode.OpJumpIfFalse);
+
+    emitByte(@enumToInt(OpCode.OpPop));
+    parsePrecedence(Precedence.PREC_AND);
+
+    patchJump(endJump);
+}
+
+fn logicalOr(_: bool) void {
+    var elseJump = emitJump(OpCode.OpJumpIfFalse);
+    var endJump = emitJump(OpCode.OpJump);
+
+    patchJump(elseJump);
+    emitByte(@enumToInt(OpCode.OpPop));
+
+    parsePrecedence(Precedence.PREC_OR);
+    patchJump(endJump);
 }
 
 ////////////////////
