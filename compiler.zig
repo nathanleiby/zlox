@@ -130,6 +130,7 @@ const Local = struct {
 
 const U8_MAX = 255;
 const U8_COUNT = U8_MAX + 1;
+const U16_MAX = 65535;
 
 const Compiler = struct {
     locals: [U8_COUNT]Local,
@@ -311,12 +312,14 @@ fn markInitialized() void {
 ////////////////////
 // Statements
 ////////////////////
-fn statement() !void {
+fn statement() compilerError!void {
     if (match(TokenType.PRINT)) {
         printStatement();
+    } else if (match(TokenType.IF)) {
+        ifStatement() catch return compilerError.TODO;
     } else if (match(TokenType.LEFT_BRACE)) {
         beginScope();
-        try block();
+        block() catch return compilerError.TODO;
         endScope();
     } else {
         expressionStatement();
@@ -349,6 +352,45 @@ fn printStatement() void {
     expression();
     consume(TokenType.SEMICOLON, "Expect ';' after value.");
     emitByte(@enumToInt(OpCode.OpPrint));
+}
+
+fn ifStatement() !void {
+    consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
+    expression();
+    consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.");
+
+    var thenJump = emitJump(OpCode.OpJumpIfFalse);
+    try statement();
+
+    var elseJump = emitJump(OpCode.OpJump);
+
+    patchJump(thenJump);
+
+    // Handle 'else' (optional)
+    if (match(TokenType.ELSE)) {
+        try statement();
+    }
+    patchJump(elseJump);
+}
+
+fn emitJump(op: OpCode) usize {
+    emitByte(@enumToInt(op));
+    emitByte(0xff);
+    emitByte(0xff);
+    const count = currentChunk().code.items.len;
+    return count - 2;
+}
+
+fn patchJump(offset: usize) void {
+    const count = currentChunk().code.items.len;
+    const jump = count - offset - 2;
+
+    if (jump > U16_MAX) {
+        err("Too much code to jump over.");
+    }
+
+    currentChunk().code.items[offset] = (jump >> 8) & 0xff;
+    currentChunk().code.items[offset + 1] = jump & 0xff;
 }
 
 fn expressionStatement() void {

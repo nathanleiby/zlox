@@ -234,6 +234,14 @@ pub const VM = struct {
                     const slot = self.readByte();
                     self.stack.items[slot] = self.peek(0);
                 },
+                .OpJump => {
+                    const offset = self.readShort();
+                    self.ip += offset;
+                },
+                .OpJumpIfFalse => {
+                    const offset = self.readShort();
+                    if (self.peek(0).isFalsey()) self.ip += offset;
+                },
             }
         }
 
@@ -247,9 +255,15 @@ pub const VM = struct {
     }
 
     fn readByte(self: *VM) usize {
-        const b = self.chunk.code.items[self.ip];
+        const byte = self.chunk.code.items[self.ip];
         self.ip += 1;
-        return b;
+        return byte;
+    }
+
+    fn readShort(self: *VM) usize {
+        const short = @intCast(u16, (self.chunk.code.items[self.ip] << 8) | self.chunk.code.items[self.ip + 1]);
+        self.ip += 2;
+        return short;
     }
 
     fn readString(self: *VM) []const u8 {

@@ -29,6 +29,8 @@ pub const OpCode = enum(u8) {
     OpSetGlobal,
     OpGetLocal,
     OpSetLocal,
+    OpJumpIfFalse,
+    OpJump,
 };
 
 pub const Chunk = struct {
@@ -149,6 +151,12 @@ pub const Chunk = struct {
             .OpSetLocal => {
                 return byteInstruction("OP_SET_LOCAL", chunk, offset);
             },
+            .OpJump => {
+                return jumpInstruction("OP_JUMP", 1, chunk, offset);
+            },
+            .OpJumpIfFalse => {
+                return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
+            },
         }
     }
 };
@@ -192,6 +200,21 @@ fn byteInstruction(name: []const u8, chunk: Chunk, offset: usize) usize {
     print("\n", .{});
 
     return offset + 2;
+}
+
+fn jumpInstruction(name: []const u8, sign: i8, chunk: Chunk, offset: usize) usize {
+    printName(name);
+
+    var jump: u16 = @truncate(u16, chunk.code.items[offset + 1]) << 8;
+    jump |= @truncate(u16, chunk.code.items[offset + 2]);
+    if (sign > 0) {
+        print("{:04} -> {:04}", .{ offset, offset + 3 + jump });
+    } else {
+        print("{:04} -> {:04}", .{ offset, offset + 3 - jump });
+    }
+    print("\n", .{});
+
+    return offset + 3;
 }
 
 test "chunk" {
