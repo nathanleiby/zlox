@@ -1,0 +1,13 @@
+var condition = 1;
+if (condition) print("condition was truthy");
+
+if (false) print "then"; else print "else";
+
+// Logical operators
+print (false or true); // true
+print (true or true or false); // true
+print (false or false or false); // false
+
+print (false and true); // false
+print (true and true and false);  // false
+print (true and true and true); // true
