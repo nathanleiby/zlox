@@ -88,83 +88,30 @@ pub const Chunk = struct {
 
         const item = @intToEnum(OpCode, byte);
         switch (item) {
-            .OpReturn => {
-                return simpleInstruction("OP_RETURN", offset);
-            },
-            .OpConstant => {
-                return constantInstruction("OP_CONSTANT", chunk, offset);
-            },
-            .OpNegate => {
-                print("OP_NEGATE            ", .{});
-                const constantIdx = chunk.code.items[offset + 1];
-                print("{:04} -- ", .{constantIdx});
-                print("{d}", .{chunk.values.items[constantIdx]});
-                print("\n", .{});
-                return offset + 1;
-            },
-            .OpAdd => {
-                return simpleInstruction("OP_ADD", offset);
-            },
-            .OpSubtract => {
-                return simpleInstruction("OP_SUBTRACT", offset);
-            },
-            .OpMultiply => {
-                return simpleInstruction("OP_MULTIPLY", offset);
-            },
-            .OpDivide => {
-                return simpleInstruction("OP_DIVIDE", offset);
-            },
-            .OpNil => {
-                return simpleInstruction("OP_NIL", offset);
-            },
-            .OpTrue => {
-                return simpleInstruction("OP_TRUE", offset);
-            },
-            .OpFalse => {
-                return simpleInstruction("OP_FALSE", offset);
-            },
-            .OpNot => {
-                return simpleInstruction("OP_NOT", offset);
-            },
-            .OpGreater => {
-                return simpleInstruction("OP_GREATER", offset);
-            },
-            .OpLess => {
-                return simpleInstruction("OP_LESS", offset);
-            },
-            .OpEqual => {
-                return simpleInstruction("OP_EQUAL", offset);
-            },
-            .OpPrint => {
-                return simpleInstruction("OP_PRINT", offset);
-            },
-            .OpPop => {
-                return simpleInstruction("OP_POP", offset);
-            },
-            .OpDefineGlobal => {
-                return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
-            },
-            .OpGetGlobal => {
-                return constantInstruction("OP_GET_GLOBAL", chunk, offset);
-            },
-            .OpSetGlobal => {
-                return constantInstruction("OP_SET_GLOBAL", chunk, offset);
-            },
-            .OpGetLocal => {
-                return byteInstruction("OP_GET_LOCAL", chunk, offset);
-            },
-            .OpSetLocal => {
-                return byteInstruction("OP_SET_LOCAL", chunk, offset);
-            },
-            .OpJump => {
-                return jumpInstruction("OP_JUMP", 1, chunk, offset);
-            },
-            .OpJumpIfFalse => {
-                return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
-            },
-            .OpLoop => {
-                return jumpInstruction("OP_LOOP", -1, chunk, offset);
-            },
+            .OpReturn => return simpleInstruction("OP_RETURN", offset),
+            .OpConstant => return constantInstruction("OP_CONSTANT", chunk, offset),
+            .OpNegate => return simpleInstruction("OP_NEGATE", offset),
+            .OpAdd => return simpleInstruction("OP_ADD", offset),
+            .OpSubtract => return simpleInstruction("OP_SUBTRACT", offset),
+            .OpMultiply => return simpleInstruction("OP_MULTIPLY", offset),
+            .OpDivide => return simpleInstruction("OP_DIVIDE", offset),
+            .OpNil => return simpleInstruction("OP_NIL", offset),
+            .OpTrue => return simpleInstruction("OP_TRUE", offset),
+            .OpFalse => return simpleInstruction("OP_FALSE", offset),
+            .OpNot => return simpleInstruction("OP_NOT", offset),
+            .OpGreater => return simpleInstruction("OP_GREATER", offset),
+            .OpLess => return simpleInstruction("OP_LESS", offset),
+            .OpEqual => return simpleInstruction("OP_EQUAL", offset),
+            .OpPrint => return simpleInstruction("OP_PRINT", offset),
+            .OpPop => return simpleInstruction("OP_POP", offset),
+            .OpDefineGlobal => return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset),
+            .OpGetGlobal => return constantInstruction("OP_GET_GLOBAL", chunk, offset),
+            .OpSetGlobal => return constantInstruction("OP_SET_GLOBAL", chunk, offset),
+            .OpGetLocal => return byteInstruction("OP_GET_LOCAL", chunk, offset),
+            .OpSetLocal => return byteInstruction("OP_SET_LOCAL", chunk, offset),
+            .OpJump => return jumpInstruction("OP_JUMP", 1, chunk, offset),
+            .OpJumpIfFalse => return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset),
+            .OpLoop => return jumpInstruction("OP_LOOP", -1, chunk, offset),
         }
     }
 };
