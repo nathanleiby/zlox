@@ -1,4 +1,5 @@
 - [ ] rename `free()` methods to `deinit()` to follow Zig conventions
+  - it seems like the allocator uses the word `free` but other data structs (e.g. ArrayList) use `deinit`
 - [ ] `<` works but `<=` doesn't seem to work
   - ... perhaps a bug due to popping numbers off the stack?
 - [ ] Do memory allocator as described in the book
