@@ -117,15 +117,7 @@ pub const Chunk = struct {
 };
 
 fn printName(name: []const u8) void {
-    print("{s}", .{name});
-    // TODO: hacky fixed width
-    // use string formatting. may need bufPrint
-    // https://ziglearn.org/chapter-2/#advanced-formatting
-    var i: usize = 0;
-    while (i < 16 - name.len) {
-        print(" ", .{});
-        i += 1;
-    }
+    print("{s: <16}", .{name});
 }
 
 fn constantInstruction(name: []const u8, chunk: Chunk, offset: usize) usize {
