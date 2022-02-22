@@ -21,9 +21,9 @@ const DEBUG_TRACE_EXECUTION = true; // debug mode
 const DEBUG_TRACE_EXECUTION_INCLUDE_INSTRUCTIONS = false;
 
 pub const InterpretResult = enum {
-    InterpretOk,
-    InterpretCompileError,
-    InterpretRuntimeError,
+    Ok,
+    CompileError,
+    RuntimeError,
 };
 
 pub const VM = struct {
@@ -54,7 +54,7 @@ pub const VM = struct {
     pub fn interpret(self: *VM, source: []u8) !InterpretResult {
         const compileSuccess = try compiler.compile(source, self.chunk, self.objManager);
         if (!compileSuccess) {
-            return InterpretResult.InterpretCompileError;
+            return InterpretResult.CompileError;
         }
 
         const result = try self.run();
@@ -140,12 +140,12 @@ pub const VM = struct {
 
             switch (instruction) {
                 .Return => {
-                    return InterpretResult.InterpretOk;
+                    return InterpretResult.Ok;
                 },
                 .Negate => {
                     if (!(@as(Value, self.peek(0)) == Value.number)) {
                         self.runtimeError("Negation operand must be a number.");
-                        return InterpretResult.InterpretRuntimeError;
+                        return InterpretResult.RuntimeError;
                     }
                     try self.stack.append(Value{ .number = -self.stack.pop().number });
                 },
@@ -171,7 +171,7 @@ pub const VM = struct {
                         try self.concatenate(a.asCString(), b.asCString());
                     } else {
                         self.runtimeError("Operands must be two numbers or two strings.");
-                        return InterpretResult.InterpretRuntimeError;
+                        return InterpretResult.RuntimeError;
                     }
                 },
                 .Subtract, .Multiply, .Divide, .Greater, .Less => {
@@ -179,7 +179,7 @@ pub const VM = struct {
                         try self.binaryOp(instruction);
                     } else {
                         self.runtimeError("Operands must be two numbers.");
-                        return InterpretResult.InterpretRuntimeError;
+                        return InterpretResult.RuntimeError;
                     }
                 },
                 .Not => {
@@ -209,7 +209,7 @@ pub const VM = struct {
                     } else {
                         // TODO: dynamically create a string and pass in name
                         self.runtimeError("Undefined variable 'TODO:passVarName'.");
-                        return InterpretResult.InterpretRuntimeError;
+                        return InterpretResult.RuntimeError;
                     }
                 },
                 .SetGlobal => {
@@ -223,7 +223,7 @@ pub const VM = struct {
                         _ = self.objManager.globals.remove(name);
                         // TODO: dynamically create a string and pass in name
                         self.runtimeError("Undefined variable 'TODO:passVarName'.");
-                        return InterpretResult.InterpretRuntimeError;
+                        return InterpretResult.RuntimeError;
                     }
                 },
                 .GetLocal => {
@@ -251,7 +251,7 @@ pub const VM = struct {
             }
         }
 
-        return InterpretResult.InterpretOk;
+        return InterpretResult.Ok;
     }
 
     fn readConstant(self: *VM) Value {
@@ -311,7 +311,7 @@ test "virtual machine can negate a value" {
     // interpret
     const result = try vm.run();
     print("Interpret result: {s}\n", .{result});
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 test "virtual machine can do some binary ops (add and divide)" {
@@ -351,7 +351,7 @@ test "virtual machine can do some binary ops (add and divide)" {
     // interpret
     const result = try vm.run();
     print("Interpret result: {s}\n", .{result});
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 // // TODO
@@ -389,7 +389,7 @@ test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
     // interpret
     const result = try vm.run();
     print("Interpret result: {s}\n", .{result});
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 test "virtual machine can run minimal program" {
@@ -403,7 +403,7 @@ test "virtual machine can run minimal program" {
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 // // TODO: figure out why trailing -5 doesn't work
@@ -420,7 +420,7 @@ test "virtual machine can do arithmetic" {
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 test "virtual machine can work with strings" {
@@ -434,7 +434,7 @@ test "virtual machine can work with strings" {
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 test "virtual machine can concat strings" {
@@ -448,7 +448,7 @@ test "virtual machine can concat strings" {
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 test "virtual machine can print()" {
@@ -463,7 +463,7 @@ test "virtual machine can print()" {
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 test "virtual machine can uses interned strings" {
@@ -482,7 +482,7 @@ test "virtual machine can uses interned strings" {
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 test "virtual machine can define a global var" {
@@ -497,7 +497,7 @@ test "virtual machine can define a global var" {
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 test "virtual machine can define and set a local var" {
@@ -513,7 +513,7 @@ test "virtual machine can define and set a local var" {
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretOk);
+    try expect(result == InterpretResult.Ok);
 }
 
 test "virtual machine should error if local var is redeclared within same scope" {
@@ -531,7 +531,7 @@ test "virtual machine should error if local var is redeclared within same scope"
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretCompileError);
+    try expect(result == InterpretResult.CompileError);
 }
 
 test "virtual machine should error if var references itself in its initializerd" {
@@ -551,5 +551,5 @@ test "virtual machine should error if var references itself in its initializerd"
     std.mem.copy(u8, source, chars);
 
     const result = try vm.interpret(source);
-    try expect(result == InterpretResult.InterpretCompileError);
+    try expect(result == InterpretResult.CompileError);
 }

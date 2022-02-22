@@ -43,8 +43,8 @@ fn runFile(path: []u8) !void {
     defer vm.free();
     const result: InterpretResult = try vm.interpret(source);
 
-    if (result == InterpretResult.InterpretCompileError) std.os.exit(65);
-    if (result == InterpretResult.InterpretRuntimeError) std.os.exit(70);
+    if (result == InterpretResult.CompileError) std.os.exit(65);
+    if (result == InterpretResult.RuntimeError) std.os.exit(70);
 }
 
 fn repl() !void {
