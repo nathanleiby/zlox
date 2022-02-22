@@ -8,7 +8,7 @@
 - [ ] Try out a zig linter https://github.com/nektro/ziglint
 - [ ] Make Enum naming more consistent and succinct
   - not sure what's the Zig convention for enum naming. Shoutcase? Camelcase?
-  - e.g. `Precendence.PREC_NONE` => `Precedence.None`
+  - [x] e.g. `Precendence.PREC_NONE` => `Precedence.None`
   - [x] e.g. `OpCode.OpNil` => `OpCode.Nil`
 - [ ] Refactor parser into a testable struct
 - [ ] Figure out how to do imports without importing the tests
