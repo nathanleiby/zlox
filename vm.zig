@@ -86,12 +86,12 @@ pub const VM = struct {
         const a = self.stack.pop();
 
         switch (op) {
-            .OpAdd => try self.stack.append(Value{ .number = a.number + b.number }),
-            .OpSubtract => try self.stack.append(Value{ .number = a.number - b.number }),
-            .OpMultiply => try self.stack.append(Value{ .number = a.number * b.number }),
-            .OpDivide => try self.stack.append(Value{ .number = a.number / b.number }),
-            .OpGreater => try self.stack.append(Value{ .boolean = a.number > b.number }),
-            .OpLess => try self.stack.append(Value{ .boolean = a.number < b.number }),
+            .Add => try self.stack.append(Value{ .number = a.number + b.number }),
+            .Subtract => try self.stack.append(Value{ .number = a.number - b.number }),
+            .Multiply => try self.stack.append(Value{ .number = a.number * b.number }),
+            .Divide => try self.stack.append(Value{ .number = a.number / b.number }),
+            .Greater => try self.stack.append(Value{ .boolean = a.number > b.number }),
+            .Less => try self.stack.append(Value{ .boolean = a.number < b.number }),
             else => unreachable,
         }
     }
@@ -139,29 +139,29 @@ pub const VM = struct {
             const instruction = @intToEnum(OpCode, byte);
 
             switch (instruction) {
-                .OpReturn => {
+                .Return => {
                     return InterpretResult.InterpretOk;
                 },
-                .OpNegate => {
+                .Negate => {
                     if (!(@as(Value, self.peek(0)) == Value.number)) {
                         self.runtimeError("Negation operand must be a number.");
                         return InterpretResult.InterpretRuntimeError;
                     }
                     try self.stack.append(Value{ .number = -self.stack.pop().number });
                 },
-                .OpConstant => {
+                .Constant => {
                     try self.stack.append(self.readConstant());
                 },
-                .OpFalse => {
+                .False => {
                     try self.stack.append(Value{ .boolean = false });
                 },
-                .OpTrue => {
+                .True => {
                     try self.stack.append(Value{ .boolean = true });
                 },
-                .OpNil => {
+                .Nil => {
                     try self.stack.append(Value{ .nil = undefined });
                 },
-                .OpAdd => {
+                .Add => {
                     // + supports adding numbers or concatenating strings
                     if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
                         try self.binaryOp(instruction);
@@ -174,7 +174,7 @@ pub const VM = struct {
                         return InterpretResult.InterpretRuntimeError;
                     }
                 },
-                .OpSubtract, .OpMultiply, .OpDivide, .OpGreater, .OpLess => {
+                .Subtract, .Multiply, .Divide, .Greater, .Less => {
                     if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
                         try self.binaryOp(instruction);
                     } else {
@@ -182,27 +182,27 @@ pub const VM = struct {
                         return InterpretResult.InterpretRuntimeError;
                     }
                 },
-                .OpNot => {
+                .Not => {
                     try self.stack.append(Value{ .boolean = self.stack.pop().isFalsey() });
                 },
-                .OpEqual => {
+                .Equal => {
                     var b = self.stack.pop();
                     var a = self.stack.pop();
                     try self.stack.append(Value{ .boolean = valuesEqual(a, b) });
                 },
-                .OpPrint => {
+                .Print => {
                     printValue(self.stack.pop());
                     print("\n", .{});
                 },
-                .OpPop => {
+                .Pop => {
                     _ = self.stack.pop();
                 },
-                .OpDefineGlobal => {
+                .DefineGlobal => {
                     const name = self.readString();
                     try self.objManager.globals.put(name, self.peek(0));
                     _ = self.stack.pop();
                 },
-                .OpGetGlobal => {
+                .GetGlobal => {
                     const name = self.readString();
                     if (self.objManager.globals.get(name)) |val| {
                         try self.stack.append(val);
@@ -212,7 +212,7 @@ pub const VM = struct {
                         return InterpretResult.InterpretRuntimeError;
                     }
                 },
-                .OpSetGlobal => {
+                .SetGlobal => {
                     const name = self.readString();
                     const old = try self.objManager.globals.fetchPut(name, self.peek(0));
                     if (old) |_| {
@@ -226,24 +226,24 @@ pub const VM = struct {
                         return InterpretResult.InterpretRuntimeError;
                     }
                 },
-                .OpGetLocal => {
+                .GetLocal => {
                     const slot = self.readByte();
                     try self.push(self.stack.items[slot]);
                 },
-                .OpSetLocal => {
+                .SetLocal => {
                     const slot = self.readByte();
                     self.stack.items[slot] = self.peek(0);
                 },
-                .OpJump => {
+                .Jump => {
                     const offset = self.readShort();
                     // jump forward
                     self.ip += offset;
                 },
-                .OpJumpIfFalse => {
+                .JumpIfFalse => {
                     const offset = self.readShort();
                     if (self.peek(0).isFalsey()) self.ip += offset;
                 },
-                .OpLoop => {
+                .Loop => {
                     const offset = self.readShort();
                     // jump backward
                     self.ip -= offset;
@@ -297,13 +297,13 @@ test "virtual machine can negate a value" {
 
     const fakeLineNum = 123;
 
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNum);
+    try chunk.write(@enumToInt(OpCode.Constant), fakeLineNum);
     const constant = try chunk.addConstant(Value{ .number = 1.2 });
     try chunk.write(constant, 1);
 
-    try chunk.write(@enumToInt(OpCode.OpNegate), fakeLineNum);
+    try chunk.write(@enumToInt(OpCode.Negate), fakeLineNum);
 
-    try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNum);
+    try chunk.write(@enumToInt(OpCode.Return), fakeLineNum);
 
     // disassemble
     chunk.disassemble("chunk");
@@ -327,23 +327,23 @@ test "virtual machine can do some binary ops (add and divide)" {
 
     const fakeLineNumber = 123;
 
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Constant), fakeLineNumber);
     const constant = try chunk.addConstant(Value{ .number = 1.2 });
     try chunk.write(constant, fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Constant), fakeLineNumber);
     const constant2 = try chunk.addConstant(Value{ .number = 3.4 });
     try chunk.write(constant2, fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Add), fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Constant), fakeLineNumber);
     const constant3 = try chunk.addConstant(Value{ .number = 5.6 });
     try chunk.write(constant3, 1);
 
-    try chunk.write(@enumToInt(OpCode.OpDivide), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Divide), fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Return), fakeLineNumber);
 
     // disassemble
     chunk.disassemble("chunk");
@@ -371,17 +371,17 @@ test "virtual machine can do all binary ops (add, subtract, multiply, divide)" {
     const fakeLineNumber = 123;
 
     // write
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Constant), fakeLineNumber);
     const constant = try chunk.addConstant(Value{ .number = 1 });
     try chunk.write(constant, fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Constant), fakeLineNumber);
     const constant2 = try chunk.addConstant(Value{ .number = 2 });
     try chunk.write(constant2, fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Add), fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Return), fakeLineNumber);
 
     // disassemble
     chunk.disassemble("chunk");

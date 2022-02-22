@@ -223,7 +223,7 @@ fn varDeclaration() !void {
     if (match(TokenType.EQUAL)) {
         expression();
     } else {
-        emitByte(@enumToInt(OpCode.OpNil));
+        emitByte(@enumToInt(OpCode.Nil));
     }
 
     consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
@@ -257,7 +257,7 @@ fn defineVariable(constantsRef: u8) void {
     }
 
     // store a reference to the variable in the constants table
-    emitBytes(@enumToInt(OpCode.OpDefineGlobal), constantsRef);
+    emitBytes(@enumToInt(OpCode.DefineGlobal), constantsRef);
 }
 
 fn declareVariable() void {
@@ -310,20 +310,20 @@ fn markInitialized() void {
 }
 
 fn logicalAnd(_: bool) void {
-    var endJump = emitJump(OpCode.OpJumpIfFalse);
+    var endJump = emitJump(OpCode.JumpIfFalse);
 
-    emitByte(@enumToInt(OpCode.OpPop));
+    emitByte(@enumToInt(OpCode.Pop));
     parsePrecedence(Precedence.PREC_AND);
 
     patchJump(endJump);
 }
 
 fn logicalOr(_: bool) void {
-    var elseJump = emitJump(OpCode.OpJumpIfFalse);
-    var endJump = emitJump(OpCode.OpJump);
+    var elseJump = emitJump(OpCode.JumpIfFalse);
+    var endJump = emitJump(OpCode.Jump);
 
     patchJump(elseJump);
-    emitByte(@enumToInt(OpCode.OpPop));
+    emitByte(@enumToInt(OpCode.Pop));
 
     parsePrecedence(Precedence.PREC_OR);
     patchJump(endJump);
@@ -359,7 +359,7 @@ fn endScope() void {
 
     // when local variables leave scope, remove them from the stack
     while (compiler.localCount > 0 and compiler.locals[compiler.localCount - 1].depth > compiler.scopeDepth) {
-        emitByte(@enumToInt(OpCode.OpPop));
+        emitByte(@enumToInt(OpCode.Pop));
         compiler.localCount -= 1;
     }
 }
@@ -375,7 +375,7 @@ fn block() !void {
 fn printStatement() void {
     expression();
     consume(TokenType.SEMICOLON, "Expect ';' after value.");
-    emitByte(@enumToInt(OpCode.OpPrint));
+    emitByte(@enumToInt(OpCode.Print));
 }
 
 fn ifStatement() !void {
@@ -383,14 +383,14 @@ fn ifStatement() !void {
     expression();
     consume(TokenType.RIGHT_PAREN, "Expect ')' after 'if' condition.");
 
-    var thenJump = emitJump(OpCode.OpJumpIfFalse);
-    emitByte(@enumToInt(OpCode.OpPop)); // pop off condition expression's value
+    var thenJump = emitJump(OpCode.JumpIfFalse);
+    emitByte(@enumToInt(OpCode.Pop)); // pop off condition expression's value
     try statement();
 
-    var elseJump = emitJump(OpCode.OpJump);
+    var elseJump = emitJump(OpCode.Jump);
 
     patchJump(thenJump);
-    emitByte(@enumToInt(OpCode.OpPop)); // pop off condition expression's value
+    emitByte(@enumToInt(OpCode.Pop)); // pop off condition expression's value
 
     // Handle 'else' (optional)
     if (match(TokenType.ELSE)) {
@@ -424,13 +424,13 @@ fn whileStatement() !void {
     expression();
     consume(TokenType.RIGHT_PAREN, "Expect ')' after 'while' condition.");
 
-    var exitJump = emitJump(OpCode.OpJumpIfFalse);
-    emitByte(@enumToInt(OpCode.OpPop)); // pop off condition expressio's value if we enter the loop
+    var exitJump = emitJump(OpCode.JumpIfFalse);
+    emitByte(@enumToInt(OpCode.Pop)); // pop off condition expressio's value if we enter the loop
     try statement();
     emitLoop(loopStart);
 
     patchJump(exitJump);
-    emitByte(@enumToInt(OpCode.OpPop)); // pop off condition expression's value as we exit the loop
+    emitByte(@enumToInt(OpCode.Pop)); // pop off condition expression's value as we exit the loop
 }
 
 fn forStatement() !void {
@@ -458,19 +458,19 @@ fn forStatement() !void {
         consume(TokenType.SEMICOLON, "Expect ';' after 'for' loop condition.");
 
         // Jump out of the loop if the condition is false.
-        exitJump = emitJump(OpCode.OpJumpIfFalse);
+        exitJump = emitJump(OpCode.JumpIfFalse);
         hasExitJump = true;
-        emitByte(@enumToInt(OpCode.OpPop)); // remove the condition expression's value
+        emitByte(@enumToInt(OpCode.Pop)); // remove the condition expression's value
     }
 
     // (3) For-loop "Increment"
     if (match(TokenType.RIGHT_PAREN)) {
         // no increment
     } else {
-        var bodyJump = emitJump(OpCode.OpJump);
+        var bodyJump = emitJump(OpCode.Jump);
         var incrementStart = currentChunk().count();
         expression();
-        emitByte(@enumToInt(OpCode.OpPop)); // remove the increment expression's value
+        emitByte(@enumToInt(OpCode.Pop)); // remove the increment expression's value
         consume(TokenType.RIGHT_PAREN, "Expect ')' after 'for' clauses.");
 
         emitLoop(loopStart);
@@ -486,14 +486,14 @@ fn forStatement() !void {
     if (hasExitJump) {
         // Patch the loop condition
         patchJump(exitJump);
-        emitByte(@enumToInt(OpCode.OpPop)); // remove the condition expression's value
+        emitByte(@enumToInt(OpCode.Pop)); // remove the condition expression's value
     }
 
     endScope();
 }
 
 fn emitLoop(loopStart: usize) void {
-    emitByte(@enumToInt(OpCode.OpLoop));
+    emitByte(@enumToInt(OpCode.Loop));
 
     var offset = currentChunk().count() - loopStart + 2;
     if (offset > U16_MAX) err("Loop body too large.");
@@ -505,7 +505,7 @@ fn emitLoop(loopStart: usize) void {
 fn expressionStatement() void {
     expression();
     consume(TokenType.SEMICOLON, "Expect ';' after expression.");
-    emitByte(@enumToInt(OpCode.OpPop));
+    emitByte(@enumToInt(OpCode.Pop));
 }
 
 fn expression() void {
@@ -515,13 +515,13 @@ fn expression() void {
 fn literal(_: bool) void {
     switch (parser.previous.ttype) {
         .FALSE => {
-            emitByte(@enumToInt(OpCode.OpFalse));
+            emitByte(@enumToInt(OpCode.False));
         },
         .TRUE => {
-            emitByte(@enumToInt(OpCode.OpTrue));
+            emitByte(@enumToInt(OpCode.True));
         },
         .NIL => {
-            emitByte(@enumToInt(OpCode.OpNil));
+            emitByte(@enumToInt(OpCode.Nil));
         },
         else => {
             // unreachable
@@ -568,12 +568,12 @@ fn namedVariable(token: Token, canAssign: bool) !void {
 
     if (resolveLocal(compiler, token)) |localArg| {
         arg = @truncate(u8, localArg);
-        getOp = OpCode.OpGetLocal;
-        setOp = OpCode.OpSetLocal;
+        getOp = OpCode.GetLocal;
+        setOp = OpCode.SetLocal;
     } else |_| { // ignore the error
         arg = try identifierConstant(token);
-        getOp = OpCode.OpGetGlobal;
-        setOp = OpCode.OpSetGlobal;
+        getOp = OpCode.GetGlobal;
+        setOp = OpCode.SetGlobal;
     }
 
     if (canAssign and match(TokenType.EQUAL)) {
@@ -621,10 +621,10 @@ fn unary(_: bool) void {
     // Emit the operator instruction.
     switch (operatorType) {
         .MINUS => {
-            emitByte(@enumToInt(OpCode.OpNegate));
+            emitByte(@enumToInt(OpCode.Negate));
         },
         .BANG => {
-            emitByte(@enumToInt(OpCode.OpNot));
+            emitByte(@enumToInt(OpCode.Not));
         },
         else => {
             unreachable;
@@ -639,34 +639,34 @@ fn binary(_: bool) void {
 
     switch (operatorType) {
         .PLUS => {
-            emitByte(@enumToInt(OpCode.OpAdd));
+            emitByte(@enumToInt(OpCode.Add));
         },
         .MINUS => {
-            emitByte(@enumToInt(OpCode.OpSubtract));
+            emitByte(@enumToInt(OpCode.Subtract));
         },
         .STAR => {
-            emitByte(@enumToInt(OpCode.OpMultiply));
+            emitByte(@enumToInt(OpCode.Multiply));
         },
         .SLASH => {
-            emitByte(@enumToInt(OpCode.OpDivide));
+            emitByte(@enumToInt(OpCode.Divide));
         },
         .BANG_EQUAL => {
-            emitBytes(@enumToInt(OpCode.OpEqual), @enumToInt(OpCode.OpNot));
+            emitBytes(@enumToInt(OpCode.Equal), @enumToInt(OpCode.Not));
         },
         .EQUAL_EQUAL => {
-            emitByte(@enumToInt(OpCode.OpEqual));
+            emitByte(@enumToInt(OpCode.Equal));
         },
         .GREATER_EQUAL => {
-            emitBytes(@enumToInt(OpCode.OpGreater), @enumToInt(OpCode.OpEqual));
+            emitBytes(@enumToInt(OpCode.Greater), @enumToInt(OpCode.Equal));
         },
         .GREATER => {
-            emitByte(@enumToInt(OpCode.OpGreater));
+            emitByte(@enumToInt(OpCode.Greater));
         },
         .LESS_EQUAL => {
-            emitBytes(@enumToInt(OpCode.OpLess), @enumToInt(OpCode.OpEqual));
+            emitBytes(@enumToInt(OpCode.Less), @enumToInt(OpCode.Equal));
         },
         .LESS => {
-            emitByte(@enumToInt(OpCode.OpLess));
+            emitByte(@enumToInt(OpCode.Less));
         },
         else => {
             // unreachable
@@ -718,7 +718,7 @@ fn endCompiler() void {
 }
 
 fn emitConstant(value: Value) void {
-    emitBytes(@enumToInt(OpCode.OpConstant), makeConstant(value));
+    emitBytes(@enumToInt(OpCode.Constant), makeConstant(value));
 }
 
 fn makeConstant(value: Value) u8 {
@@ -735,7 +735,7 @@ fn makeConstant(value: Value) u8 {
 }
 
 fn emitReturn() void {
-    emitByte(@enumToInt(OpCode.OpReturn));
+    emitByte(@enumToInt(OpCode.Return));
 }
 
 fn emitBytes(byte1: u8, byte2: u8) void {

@@ -8,30 +8,30 @@ const Value = @import("./value.zig").Value;
 const printValue = @import("./value.zig").printValue;
 
 pub const OpCode = enum(u8) {
-    OpReturn,
-    OpConstant,
-    OpNil,
-    OpTrue,
-    OpFalse,
-    OpAdd,
-    OpSubtract,
-    OpMultiply,
-    OpDivide,
-    OpNegate,
-    OpNot,
-    OpEqual,
-    OpGreater,
-    OpLess,
-    OpPrint,
-    OpPop,
-    OpDefineGlobal,
-    OpGetGlobal,
-    OpSetGlobal,
-    OpGetLocal,
-    OpSetLocal,
-    OpJumpIfFalse,
-    OpJump,
-    OpLoop,
+    Return,
+    Constant,
+    Nil,
+    True,
+    False,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Negate,
+    Not,
+    Equal,
+    Greater,
+    Less,
+    Print,
+    Pop,
+    DefineGlobal,
+    GetGlobal,
+    SetGlobal,
+    GetLocal,
+    SetLocal,
+    JumpIfFalse,
+    Jump,
+    Loop,
 };
 
 pub const Chunk = struct {
@@ -88,30 +88,30 @@ pub const Chunk = struct {
 
         const item = @intToEnum(OpCode, byte);
         switch (item) {
-            .OpReturn => return simpleInstruction("OP_RETURN", offset),
-            .OpConstant => return constantInstruction("OP_CONSTANT", chunk, offset),
-            .OpNegate => return simpleInstruction("OP_NEGATE", offset),
-            .OpAdd => return simpleInstruction("OP_ADD", offset),
-            .OpSubtract => return simpleInstruction("OP_SUBTRACT", offset),
-            .OpMultiply => return simpleInstruction("OP_MULTIPLY", offset),
-            .OpDivide => return simpleInstruction("OP_DIVIDE", offset),
-            .OpNil => return simpleInstruction("OP_NIL", offset),
-            .OpTrue => return simpleInstruction("OP_TRUE", offset),
-            .OpFalse => return simpleInstruction("OP_FALSE", offset),
-            .OpNot => return simpleInstruction("OP_NOT", offset),
-            .OpGreater => return simpleInstruction("OP_GREATER", offset),
-            .OpLess => return simpleInstruction("OP_LESS", offset),
-            .OpEqual => return simpleInstruction("OP_EQUAL", offset),
-            .OpPrint => return simpleInstruction("OP_PRINT", offset),
-            .OpPop => return simpleInstruction("OP_POP", offset),
-            .OpDefineGlobal => return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset),
-            .OpGetGlobal => return constantInstruction("OP_GET_GLOBAL", chunk, offset),
-            .OpSetGlobal => return constantInstruction("OP_SET_GLOBAL", chunk, offset),
-            .OpGetLocal => return byteInstruction("OP_GET_LOCAL", chunk, offset),
-            .OpSetLocal => return byteInstruction("OP_SET_LOCAL", chunk, offset),
-            .OpJump => return jumpInstruction("OP_JUMP", 1, chunk, offset),
-            .OpJumpIfFalse => return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset),
-            .OpLoop => return jumpInstruction("OP_LOOP", -1, chunk, offset),
+            .Return => return simpleInstruction("OP_RETURN", offset),
+            .Constant => return constantInstruction("OP_CONSTANT", chunk, offset),
+            .Negate => return simpleInstruction("OP_NEGATE", offset),
+            .Add => return simpleInstruction("OP_ADD", offset),
+            .Subtract => return simpleInstruction("OP_SUBTRACT", offset),
+            .Multiply => return simpleInstruction("OP_MULTIPLY", offset),
+            .Divide => return simpleInstruction("OP_DIVIDE", offset),
+            .Nil => return simpleInstruction("OP_NIL", offset),
+            .True => return simpleInstruction("OP_TRUE", offset),
+            .False => return simpleInstruction("OP_FALSE", offset),
+            .Not => return simpleInstruction("OP_NOT", offset),
+            .Greater => return simpleInstruction("OP_GREATER", offset),
+            .Less => return simpleInstruction("OP_LESS", offset),
+            .Equal => return simpleInstruction("OP_EQUAL", offset),
+            .Print => return simpleInstruction("OP_PRINT", offset),
+            .Pop => return simpleInstruction("OP_POP", offset),
+            .DefineGlobal => return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset),
+            .GetGlobal => return constantInstruction("OP_GET_GLOBAL", chunk, offset),
+            .SetGlobal => return constantInstruction("OP_SET_GLOBAL", chunk, offset),
+            .GetLocal => return byteInstruction("OP_GET_LOCAL", chunk, offset),
+            .SetLocal => return byteInstruction("OP_SET_LOCAL", chunk, offset),
+            .Jump => return jumpInstruction("OP_JUMP", 1, chunk, offset),
+            .JumpIfFalse => return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset),
+            .Loop => return jumpInstruction("OP_LOOP", -1, chunk, offset),
         }
     }
 };
@@ -176,20 +176,20 @@ test "chunk" {
 
     // write
     const fakeLineNumber = 123;
-    try chunk.write(@enumToInt(OpCode.OpConstant), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Constant), fakeLineNumber);
     const constant = try chunk.addConstant(Value{ .number = 1.2 });
     try chunk.write(constant, fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpAdd), fakeLineNumber);
-    try chunk.write(@enumToInt(OpCode.OpSubtract), fakeLineNumber);
-    try chunk.write(@enumToInt(OpCode.OpDivide), fakeLineNumber);
-    try chunk.write(@enumToInt(OpCode.OpMultiply), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Add), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Subtract), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Divide), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Multiply), fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpReturn), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Return), fakeLineNumber);
 
-    try chunk.write(@enumToInt(OpCode.OpTrue), fakeLineNumber);
-    try chunk.write(@enumToInt(OpCode.OpFalse), fakeLineNumber);
-    try chunk.write(@enumToInt(OpCode.OpNil), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.True), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.False), fakeLineNumber);
+    try chunk.write(@enumToInt(OpCode.Nil), fakeLineNumber);
 
     chunk.disassemble("chunk");
 }
