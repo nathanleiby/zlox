@@ -13,6 +13,7 @@ const Value = @import("./value.zig").Value;
 
 const ObjManager = @import("./object.zig").ObjManager;
 const ObjString = @import("./object.zig").ObjString;
+const ObjFunction = @import("./object.zig").ObjFunction;
 
 const MAX_CONSTANTS = 256;
 
@@ -24,6 +25,7 @@ pub fn setObjManager(om: *ObjManager) void {
 const compilerError = error{
     TODO,
     LocalNotFound,
+    ParserError,
 };
 
 // Debugging flags
@@ -128,30 +130,43 @@ const Local = struct {
     depth: i16,
 };
 
+const FunctionType = enum {
+    Function,
+    Script,
+};
+
 const U8_MAX = 255;
 const U8_COUNT = U8_MAX + 1;
 const U16_MAX = 65535;
 
 const Compiler = struct {
+    function: *ObjFunction,
+    type_: FunctionType,
+
     locals: [U8_COUNT]Local,
     localCount: u8,
     scopeDepth: i16,
 
-    pub fn init() Compiler {
-        return Compiler{
+    pub fn init(type_: FunctionType, om: *ObjManager) !Compiler {
+        var c = Compiler{
+            .function = undefined, // see 24.2.1 .. revisit in light of garbage collector
+            .type_ = type_,
             .locals = [_]Local{Local{ .token = undefined, .depth = 0 }} ** U8_COUNT,
-            .localCount = 0,
+            .localCount = 1, // claim 1 local as a placeholder
             .scopeDepth = 0,
         };
+        c.function = try om.newFunction();
+
+        return c;
     }
 };
 
 // TODO: use a class-like setup here instead of global var
-var compiler: Compiler = undefined;
+var current: Compiler = undefined;
 var scanner: Scanner = undefined;
 
-pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !bool {
-    compiler = Compiler.init();
+pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !*ObjFunction {
+    current = try Compiler.init(FunctionType.Script, om);
 
     // startup -- could be comptime TODO
     initRules();
@@ -170,8 +185,12 @@ pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !bool {
         try declaration();
     }
 
-    endCompiler();
-    return !parser.hadError;
+    const function = endCompiler();
+    if (parser.hadError) {
+        return compilerError.ParserError;
+    } else {
+        return function;
+    }
 }
 
 fn synchronize() void {
@@ -235,7 +254,7 @@ fn parseVariable(errorMessage: []const u8) !u8 {
 
     // handle local variables
     declareVariable();
-    if (compiler.scopeDepth > 0) {
+    if (current.scopeDepth > 0) {
         return 0;
     }
 
@@ -251,7 +270,7 @@ fn identifierConstant(token: Token) !u8 {
 
 fn defineVariable(constantsRef: u8) void {
     // handle local variables
-    if (compiler.scopeDepth > 0) {
+    if (current.scopeDepth > 0) {
         markInitialized();
         return;
     }
@@ -262,7 +281,7 @@ fn defineVariable(constantsRef: u8) void {
 
 fn declareVariable() void {
     // handle globle variables
-    if (compiler.scopeDepth == 0) {
+    if (current.scopeDepth == 0) {
         return;
     }
 
@@ -275,9 +294,9 @@ fn declareVariable() void {
     // }
     // This should cause an error.
     var i: usize = 0;
-    while (i < compiler.localCount) {
-        const local = compiler.locals[i];
-        if (local.depth != -1 and local.depth < compiler.scopeDepth) {
+    while (i < current.localCount) {
+        const local = current.locals[i];
+        if (local.depth != -1 and local.depth < current.scopeDepth) {
             // we've visited all the local variables that could collide
             break;
         }
@@ -293,20 +312,20 @@ fn declareVariable() void {
 }
 
 fn addLocal(token: Token) void {
-    if (compiler.localCount == U8_COUNT) {
+    if (current.localCount == U8_COUNT) {
         err("Too many local variables in function.");
         return;
     }
 
-    const local: *Local = &compiler.locals[compiler.localCount];
-    compiler.localCount += 1;
+    const local: *Local = &current.locals[current.localCount];
+    current.localCount += 1;
     local.token = token;
     local.depth = -1; // -1 denotes uninitialized
 
 }
 
 fn markInitialized() void {
-    compiler.locals[compiler.localCount - 1].depth = compiler.scopeDepth;
+    current.locals[current.localCount - 1].depth = current.scopeDepth;
 }
 
 fn logicalAnd(_: bool) void {
@@ -351,16 +370,16 @@ fn statement() compilerError!void {
 }
 
 fn beginScope() void {
-    compiler.scopeDepth += 1;
+    current.scopeDepth += 1;
 }
 
 fn endScope() void {
-    compiler.scopeDepth -= 1;
+    current.scopeDepth -= 1;
 
     // when local variables leave scope, remove them from the stack
-    while (compiler.localCount > 0 and compiler.locals[compiler.localCount - 1].depth > compiler.scopeDepth) {
+    while (current.localCount > 0 and current.locals[current.localCount - 1].depth > current.scopeDepth) {
         emitByte(@enumToInt(OpCode.Pop));
-        compiler.localCount -= 1;
+        current.localCount -= 1;
     }
 }
 
@@ -566,7 +585,7 @@ fn namedVariable(token: Token, canAssign: bool) !void {
     var setOp: OpCode = undefined;
     var arg: u8 = 0;
 
-    if (resolveLocal(compiler, token)) |localArg| {
+    if (resolveLocal(current, token)) |localArg| {
         arg = @truncate(u8, localArg);
         getOp = OpCode.GetLocal;
         setOp = OpCode.SetLocal;
@@ -705,16 +724,23 @@ fn parsePrecedence(precedence: Precedence) void {
 var compilingChunk: *Chunk = undefined;
 
 fn currentChunk() *Chunk {
-    return compilingChunk;
+    return current.function.chunk;
 }
 
-fn endCompiler() void {
+fn endCompiler() *ObjFunction {
     emitReturn();
+    const function = current.function;
     if (DEBUG_PRINT_CODE) {
         if (!parser.hadError) {
-            currentChunk().disassemble("code");
+            var name: []const u8 = "<script>";
+            if (function.name != undefined) {
+                name = function.name.*.chars;
+            }
+            currentChunk().disassemble(name);
         }
     }
+
+    return function;
 }
 
 fn emitConstant(value: Value) void {

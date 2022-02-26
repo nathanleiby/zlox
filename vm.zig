@@ -52,10 +52,11 @@ pub const VM = struct {
     }
 
     pub fn interpret(self: *VM, source: []u8) !InterpretResult {
-        const compileSuccess = try compiler.compile(source, self.chunk, self.objManager);
-        if (!compileSuccess) {
-            return InterpretResult.CompileError;
-        }
+        const function = compiler.compile(source, self.chunk, self.objManager) catch return InterpretResult.CompileError;
+        // TODO: debugging
+        print("Compiled function:", .{});
+        printValue(Value{ .objFunction = function });
+        print("\n", .{});
 
         const result = try self.run();
         return result;

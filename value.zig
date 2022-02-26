@@ -84,7 +84,13 @@ pub fn printValue(value: Value) void {
         Value.boolean => |v| print("{b}", .{v}),
         Value.nil => |_| print("nil", .{}),
         Value.objString => |_| print("{s}", .{value.asCString()}),
-        Value.objFunction => |_| print("<fn {s}>", .{value.objFunction.name.*.chars}),
+        Value.objFunction => |_| {
+            if (value.objFunction.name == undefined) {
+                print("<script>", .{});
+            } else {
+                print("<fn {s}>", .{value.objFunction.name.*.chars});
+            }
+        },
     }
 }
 
