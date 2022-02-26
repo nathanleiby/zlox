@@ -6,6 +6,7 @@ const expect = std.testing.expect;
 const allocate = @import("./memory.zig").allocate;
 
 const Value = @import("./value.zig").Value;
+const Chunk = @import("./chunk.zig").Chunk;
 
 // toggle debug logging
 const DEBUG_MODE = false;
@@ -15,9 +16,16 @@ pub const ObjString = struct {
     chars: []const u8,
 };
 
+pub const ObjFunction = struct {
+    arity: u8,
+    chunk: *Chunk,
+    name: *ObjString,
+};
+
 pub const ObjManager = struct {
     allocator: Allocator,
     objects: std.ArrayList(*ObjString),
+    objectFns: std.ArrayList(*ObjFunction),
     strings: std.StringHashMap(*ObjString),
     globals: std.StringHashMap(Value),
 
@@ -25,6 +33,7 @@ pub const ObjManager = struct {
         const om: *ObjManager = try allocator.create(ObjManager);
         om.allocator = allocator;
         om.objects = std.ArrayList(*ObjString).init(allocator);
+        om.objectFns = std.ArrayList(*ObjFunction).init(allocator);
         om.strings = std.StringHashMap(*ObjString).init(allocator);
         om.globals = std.StringHashMap(Value).init(allocator);
         return om;
@@ -39,8 +48,20 @@ pub const ObjManager = struct {
         }
         self.allocator.free(ownedSlice);
 
+        // free the ObjFunction's
+        const ownedSlice2 = self.objectFns.toOwnedSlice();
+        for (ownedSlice2) |o| {
+            o.chunk.free();
+            self.allocator.destroy(o.chunk);
+            self.allocator.destroy(o);
+        }
+        self.allocator.free(ownedSlice2);
+
         // free the objects arraylist
         self.objects.deinit();
+
+        // free the objectFns arraylist
+        self.objectFns.deinit();
 
         // free the strings hash table
         self.strings.deinit();
@@ -91,6 +112,18 @@ pub const ObjManager = struct {
 
         return try self.allocateString(chars, chars.len);
     }
+
+    pub fn newFunction(self: *ObjManager) !*ObjFunction {
+        var function: *ObjFunction = try self.allocator.create(ObjFunction);
+        function.arity = 0;
+        function.name = undefined;
+        function.chunk = try Chunk.init(self.allocator);
+
+        // capture this object, so we can free later
+        try self.objectFns.append(function);
+
+        return function;
+    }
 };
 
 test "Copy a string" {
@@ -120,4 +153,13 @@ test "obj manager interns strings" {
     try expect(bar == bar2);
 
     try expect(foo != bar);
+}
+
+test "obj manager can create a function object" {
+    const allocator = std.testing.allocator;
+
+    var om = try ObjManager.init(allocator);
+    defer om.free();
+
+    _ = try om.newFunction();
 }

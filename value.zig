@@ -4,21 +4,18 @@ const expect = std.testing.expect;
 const expectEqualStrings = std.testing.expectEqualStrings;
 
 const ObjString = @import("./object.zig").ObjString;
+const ObjFunction = @import("./object.zig").ObjFunction;
 
 // More info on unions in Zig:
 // https://ziglang.org/documentation/master/#union
-pub const ValueType = enum {
-    boolean,
-    number,
-    nil,
-    objString,
-};
+pub const ValueType = enum { boolean, number, nil, objString, objFunction };
 
 pub const Value = union(ValueType) {
     boolean: bool,
     number: f64,
     nil: void,
     objString: *ObjString,
+    objFunction: *ObjFunction,
 
     pub fn isNumber(self: Value) bool {
         return (@as(Value, self) == Value.number);
@@ -30,6 +27,14 @@ pub const Value = union(ValueType) {
 
     fn isBoolean(self: Value) bool {
         return (@as(Value, self) == Value.boolean);
+    }
+
+    pub fn isFunction(self: Value) bool {
+        return (@as(Value, self) == Value.objFunction);
+    }
+
+    pub fn asFunction(self: Value) *ObjFunction {
+        return self.objFunction;
     }
 
     pub fn isFalsey(self: Value) bool {
@@ -69,7 +74,7 @@ pub fn valuesEqual(a: Value, b: Value) bool {
         ValueType.nil => return true,
         ValueType.number => return a.number == b.number,
         ValueType.objString => return std.mem.eql(u8, a.asCString(), b.asCString()),
-        // else => return false,
+        Value.objFunction => return &a == &b, // TODO
     }
 }
 
@@ -79,6 +84,7 @@ pub fn printValue(value: Value) void {
         Value.boolean => |v| print("{b}", .{v}),
         Value.nil => |_| print("nil", .{}),
         Value.objString => |_| print("{s}", .{value.asCString()}),
+        Value.objFunction => |_| print("<fn {s}>", .{value.objFunction.name.*.chars}),
     }
 }
 
@@ -88,9 +94,7 @@ test "tagged union can access chosen type" {
 
     switch (c) {
         Value.boolean => |value| try expect(value == true),
-        Value.number => unreachable,
-        Value.nil => unreachable,
-        Value.objString => unreachable,
+        else => unreachable,
     }
 }
 
