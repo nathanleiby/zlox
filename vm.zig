@@ -42,7 +42,6 @@ const FRAMES_MAX = 64;
 const STACK_MAX = FRAMES_MAX * U8_COUNT;
 
 pub const VM = struct {
-    chunk: *Chunk,
     objManager: *ObjManager,
     stack: std.ArrayList(Value),
     frames: [FRAMES_MAX]CallFrame,
@@ -53,7 +52,6 @@ pub const VM = struct {
 
     pub fn init(a: Allocator) !VM {
         return VM{
-            .chunk = try Chunk.init(a),
             .objManager = try ObjManager.init(a),
             .stack = std.ArrayList(Value).init(a),
             // to allow allocating more memory within compile(), e.g. to store strings
@@ -66,8 +64,6 @@ pub const VM = struct {
     }
 
     pub fn free(self: *VM) void {
-        self.chunk.free();
-        self.allocator.destroy(self.chunk);
         self.stack.deinit();
         self.objManager.free();
     }
@@ -153,7 +149,6 @@ pub const VM = struct {
 
     fn run(self: *VM) !InterpretResult {
         self.frame = &self.frames[self.frameCount - 1];
-        self.chunk = self.frame.function.chunk; // TODO: Could also change how we refer to it below
 
         while (true) {
             if (debug.TRACE_EXECUTION_INCLUDE_INSTRUCTIONS) {
@@ -181,7 +176,6 @@ pub const VM = struct {
                     }
                     // after function call, return to calling frame
                     self.frame = &self.frames[self.frameCount - 1];
-                    self.chunk = self.frame.function.chunk;
                 },
                 .Return => {
                     const result: Value = self.pop();
@@ -198,7 +192,6 @@ pub const VM = struct {
                     // add return value to the stack and update the calling frame
                     try self.push(result);
                     self.frame = &self.frames[self.frameCount - 1];
-                    self.chunk = self.frame.function.chunk;
                 },
                 .Negate => {
                     if (!(@as(Value, self.peek(0)) == Value.number)) {
@@ -320,19 +313,19 @@ pub const VM = struct {
     }
 
     fn readConstant(self: *VM) Value {
-        const constantIdx = self.chunk.code.items[self.frame.ip];
+        const constantIdx = self.frame.function.chunk.code.items[self.frame.ip];
         self.frame.ip += 1;
-        return self.chunk.values.items[constantIdx];
+        return self.frame.function.chunk.values.items[constantIdx];
     }
 
     fn readByte(self: *VM) usize {
-        const byte = self.chunk.code.items[self.frame.ip];
+        const byte = self.frame.function.chunk.code.items[self.frame.ip];
         self.frame.ip += 1;
         return byte;
     }
 
     fn readShort(self: *VM) usize {
-        const short = @intCast(u16, (self.chunk.code.items[self.frame.ip] << 8) | self.chunk.code.items[self.frame.ip + 1]);
+        const short = @intCast(u16, (self.frame.function.chunk.code.items[self.frame.ip] << 8) | self.frame.function.chunk.code.items[self.frame.ip + 1]);
         self.frame.ip += 2;
         return short;
     }
@@ -374,7 +367,6 @@ pub const VM = struct {
         frame.slotOffset = self.stack.items.len - argCount - 1;
 
         self.frameCount += 1;
-        self.chunk = func.chunk; // start processing the chunk that was called
 
         return true;
     }
