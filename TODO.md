@@ -28,3 +28,13 @@
   - one place: compiler errors like `consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.")`. We already have fns like `err` and `errorAt`
 - [ ] (someday) code profiling / speed
   - could profile some of the open-source impls too, for comparison
+- [ ] repl bug
+  ```
+  > var a = 10; print a;
+  thread 8126636 panic: index out of bounds
+  ```
+  vs
+  ```
+  > { var a = 5; print a; }
+  5
+  ```
