@@ -777,8 +777,7 @@ fn parsePrecedence(precedence: Precedence) void {
     advance();
     const rule = getRule(parser.previous.ttype);
     const prefixRule = rule.prefix;
-    // print("prefixRule {s}: {s}\n", .{ parser.previous.ttype, rule }); // TODO: this is weird but makes things work. ZIGGGGGG
-    print("prefixRule {s}\n", .{parser.previous.ttype}); // TODO: this is weird but makes things work. ZIGGGGGG
+    print("", .{}); // TODO: removing this line causes parsing errors. something gets compiled out?? ZIGGGGGG
     if (prefixRule == undefined) {
         err("Expect expression.");
         return;
