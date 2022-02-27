@@ -15,6 +15,9 @@ const ObjManager = @import("./object.zig").ObjManager;
 const ObjString = @import("./object.zig").ObjString;
 const ObjFunction = @import("./object.zig").ObjFunction;
 
+const U8_MAX = @import("./constants.zig").U8_MAX;
+const U8_COUNT = @import("./constants.zig").U8_COUNT;
+const U16_MAX = @import("./constants.zig").U16_MAX;
 const MAX_CONSTANTS = 256;
 
 var objManager: *ObjManager = undefined;
@@ -117,14 +120,6 @@ const Parser = struct {
     panicMode: bool,
 };
 
-var parser = Parser{
-    // start with placeholder tokens
-    .current = undefined,
-    .previous = undefined,
-    .hadError = false,
-    .panicMode = false,
-};
-
 const Local = struct {
     token: Token,
     depth: i16,
@@ -134,10 +129,6 @@ const FunctionType = enum {
     Function,
     Script,
 };
-
-const U8_MAX = 255;
-const U8_COUNT = U8_MAX + 1;
-const U16_MAX = 65535;
 
 const Compiler = struct {
     function: *ObjFunction,
@@ -164,8 +155,9 @@ const Compiler = struct {
 // TODO: use a class-like setup here instead of global var
 var current: Compiler = undefined;
 var scanner: Scanner = undefined;
+var parser: Parser = undefined;
 
-pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !*ObjFunction {
+pub fn compile(source: []u8, om: *ObjManager) !*ObjFunction {
     current = try Compiler.init(FunctionType.Script, om);
 
     // startup -- could be comptime TODO
@@ -173,18 +165,19 @@ pub fn compile(source: []u8, chunk: *Chunk, om: *ObjManager) !*ObjFunction {
     setObjManager(om);
 
     scanner = Scanner.init(source);
-
-    compilingChunk = chunk;
-
-    parser.hadError = false;
-    parser.panicMode = false;
+    parser = Parser{
+        // start with placeholder tokens
+        .current = undefined,
+        .previous = undefined,
+        .hadError = false,
+        .panicMode = false,
+    };
 
     advance(); // prime
     // scan tokens
     while (!match(TokenType.EOF)) {
         try declaration();
     }
-
     const function = endCompiler();
     if (parser.hadError) {
         return compilerError.ParserError;
@@ -282,10 +275,12 @@ fn defineVariable(constantsRef: u8) void {
 fn declareVariable() void {
     // handle globle variables
     if (current.scopeDepth == 0) {
+        print("Variable is global: {s}\n", .{tokenString(parser.previous)});
         return;
     }
 
     const curToken = parser.previous;
+    print("Declaring variable: {s}\n", .{tokenString(curToken)});
 
     // Check if we're declaring the same varible again within the current scope, i.e.
     // {
@@ -702,7 +697,8 @@ fn parsePrecedence(precedence: Precedence) void {
     advance();
     const rule = getRule(parser.previous.ttype);
     const prefixRule = rule.prefix;
-    print("prefixRule {s}: {s}\n", .{ parser.previous.ttype, rule }); // TODO: this is weird but makes things work. ZIGGGGGG
+    // print("prefixRule {s}: {s}\n", .{ parser.previous.ttype, rule }); // TODO: this is weird but makes things work. ZIGGGGGG
+    print("prefixRule {s}\n", .{parser.previous.ttype}); // TODO: this is weird but makes things work. ZIGGGGGG
     if (prefixRule == undefined) {
         err("Expect expression.");
         return;
@@ -721,8 +717,6 @@ fn parsePrecedence(precedence: Precedence) void {
     }
 }
 
-var compilingChunk: *Chunk = undefined;
-
 fn currentChunk() *Chunk {
     return current.function.chunk;
 }
@@ -733,9 +727,9 @@ fn endCompiler() *ObjFunction {
     if (DEBUG_PRINT_CODE) {
         if (!parser.hadError) {
             var name: []const u8 = "<script>";
-            if (function.name != undefined) {
-                name = function.name.*.chars;
-            }
+            // if (function.name != undefined) {
+            //     name = function.name.*.chars;
+            // }
             currentChunk().disassemble(name);
         }
     }

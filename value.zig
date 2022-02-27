@@ -85,10 +85,10 @@ pub fn printValue(value: Value) void {
         Value.nil => |_| print("nil", .{}),
         Value.objString => |_| print("{s}", .{value.asCString()}),
         Value.objFunction => |_| {
-            if (value.objFunction.name == undefined) {
-                print("<script>", .{});
+            if (value.objFunction.name) |name| {
+                print("<fn {s}>", .{name.*.chars});
             } else {
-                print("<fn {s}>", .{value.objFunction.name.*.chars});
+                print("<script>", .{});
             }
         },
     }

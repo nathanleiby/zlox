@@ -19,7 +19,7 @@ pub const ObjString = struct {
 pub const ObjFunction = struct {
     arity: u8,
     chunk: *Chunk,
-    name: *ObjString,
+    name: ?*ObjString = null,
 };
 
 pub const ObjManager = struct {
@@ -51,7 +51,7 @@ pub const ObjManager = struct {
         // free the ObjFunction's
         const ownedSlice2 = self.objectFns.toOwnedSlice();
         for (ownedSlice2) |o| {
-            o.chunk.free();
+            // o.chunk.free(); // TODO: This is the segfault
             self.allocator.destroy(o.chunk);
             self.allocator.destroy(o);
         }
@@ -116,7 +116,7 @@ pub const ObjManager = struct {
     pub fn newFunction(self: *ObjManager) !*ObjFunction {
         var function: *ObjFunction = try self.allocator.create(ObjFunction);
         function.arity = 0;
-        function.name = undefined;
+        function.name = null;
         function.chunk = try Chunk.init(self.allocator);
 
         // capture this object, so we can free later
