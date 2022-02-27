@@ -543,3 +543,24 @@ test "virtual machine should error if var references itself in its initialized" 
     const result = try vm.interpret(source);
     try expect(result == InterpretResult.CompileError);
 }
+
+test "virtual machine should error if fn called with wrong nubmer of arguments" {
+    const testAllocator = std.heap.page_allocator;
+    var vm = try VM.init(testAllocator);
+
+    const chars: []const u8 = (
+        \\ fun a() { b(); }
+        \\ fun b() { c(); }
+        \\ fun c() {
+        \\   c("too", "many");
+        \\ }
+        \\
+        \\ a();
+    );
+
+    var source = try testAllocator.alloc(u8, chars.len);
+    std.mem.copy(u8, source, chars);
+
+    const result = try vm.interpret(source);
+    try expect(result == InterpretResult.RuntimeError);
+}
