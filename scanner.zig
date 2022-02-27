@@ -2,8 +2,6 @@ const std = @import("std");
 const print = std.debug.print;
 const expect = std.testing.expect;
 
-const DEBUG_PRINT_TOKENS = true;
-
 pub const TokenType = enum {
     // Single-character tokens.
     LEFT_PAREN,

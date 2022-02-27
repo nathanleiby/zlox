@@ -27,8 +27,7 @@ const compilerError = error{
 };
 
 // Debugging flags
-const DEBUG_PRINT_CODE = false; // TODO: try out comptime
-const DEBUG_MODE = false;
+const debug = @import("./debug.zig");
 
 const Precedence = enum {
     None, // base case
@@ -204,14 +203,14 @@ fn synchronize() void {
 }
 
 fn match(ttype: TokenType) bool {
-    if (DEBUG_MODE) print("match() parser.current = {any}\n", .{parser.current});
+    if (debug.TRACE_PARSER) print("match() parser.current = {any}\n", .{parser.current});
     if (!check(ttype)) return false;
     advance();
     return true;
 }
 
 fn check(ttype: TokenType) bool {
-    if (DEBUG_MODE) print("check() parser.current = {any}\n", .{parser.current});
+    if (debug.TRACE_PARSER) print("check() parser.current = {any}\n", .{parser.current});
     return (parser.current.ttype == ttype);
 }
 
@@ -788,13 +787,12 @@ fn currentChunk() *Chunk {
 fn endCompiler() *ObjFunction {
     emitReturn();
     const func = current.function;
-    if (DEBUG_PRINT_CODE) {
+    if (debug.PRINT_CODE_AFTER_END_COMPILER) {
         if (!parser.hadError) {
             var name: []const u8 = "<script>";
-            // TODO
-            // if (function.name != undefined) {
-            //     name = function.name.*.chars;
-            // }
+            if (func.name) |fname| {
+                name = fname.*.chars;
+            }
             currentChunk().disassemble(name);
         }
     }
@@ -833,7 +831,7 @@ fn emitBytes(byte1: u8, byte2: u8) void {
 }
 
 fn consume(ttype: TokenType, message: []const u8) void {
-    if (DEBUG_MODE) print("consume({any}) parser.current = {any}\n", .{ ttype, parser.current });
+    if (debug.TRACE_PARSER) print("consume({any}) parser.current = {any}\n", .{ ttype, parser.current });
     if (parser.current.ttype == ttype) {
         advance();
         return;
@@ -847,7 +845,7 @@ fn advance() void {
 
     while (true) {
         parser.current = scanner.scanToken();
-        if (DEBUG_MODE) print("advance() .previous = {any} .current = {any}\n", .{ parser.previous, parser.current });
+        if (debug.TRACE_PARSER) print("advance() .previous = {any} .current = {any}\n", .{ parser.previous, parser.current });
         if (parser.current.ttype != TokenType.ERROR) break;
 
         errorAtCurrent("advance() error"); // TODO

@@ -8,9 +8,6 @@ const allocate = @import("./memory.zig").allocate;
 const Value = @import("./value.zig").Value;
 const Chunk = @import("./chunk.zig").Chunk;
 
-// toggle debug logging
-const DEBUG_MODE = false;
-
 pub const ObjString = struct {
     length: usize,
     chars: []const u8,
@@ -87,11 +84,7 @@ pub const ObjManager = struct {
     // assumes it cannot take ownership of the characters you pass in,
     // so it makes a copy of the chars on the heap
     pub fn copyString(self: *ObjManager, chars: []const u8) !*ObjString {
-        if (DEBUG_MODE) print("copyString(): {s}\n", .{chars});
         if (self.strings.get(chars)) |interned| {
-            if (DEBUG_MODE) {
-                print("copyString() found interned string: {s}\n", .{interned.chars});
-            }
             return interned;
         }
 
@@ -102,9 +95,7 @@ pub const ObjManager = struct {
 
     // assumes it can take ownership of the characters you pass in
     pub fn takeString(self: *ObjManager, chars: []const u8) !*ObjString {
-        if (DEBUG_MODE) print("takeString(): {s}\n", .{chars});
         if (self.strings.get(chars)) |interned| {
-            if (DEBUG_MODE) print("takeString() found interned string: {s}\n", .{interned.chars});
             // TODO: not sure we can free this as advised
             // self.allocator.free(chars);
             return interned;

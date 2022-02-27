@@ -20,10 +20,7 @@ const concat = @import("./memory.zig").concat;
 const U8_COUNT = @import("./constants.zig").U8_COUNT;
 
 // Debugging flags
-const DEBUG_TRACE_EXECUTION = true; // debug mode
-const DEBUG_TRACE_EXECUTION_INCLUDE_INSTRUCTIONS = false;
-const DEBUG_TRACE_EXECUTION_SHOW_GET_SET_VARS = false;
-const DEBUG_TRACE_EXECUTION_PRINT_STACK = false;
+const debug = @import("./debug.zig");
 
 pub const InterpretResult = enum {
     Ok,
@@ -159,20 +156,18 @@ pub const VM = struct {
         self.chunk = self.frame.function.chunk; // TODO: Could also change how we refer to it below
 
         while (true) {
-            if (DEBUG_TRACE_EXECUTION) {
-                if (DEBUG_TRACE_EXECUTION_INCLUDE_INSTRUCTIONS) {
-                    _ = self.frame.function.chunk.disassembleInstruction(self.frame.ip);
-                }
+            if (debug.TRACE_EXECUTION_INCLUDE_INSTRUCTIONS) {
+                _ = self.frame.function.chunk.disassembleInstruction(self.frame.ip);
+            }
 
-                if (DEBUG_TRACE_EXECUTION_PRINT_STACK) {
-                    print("          ", .{});
-                    for (self.stack.items) |slot| {
-                        print("[", .{});
-                        printValue(slot);
-                        print("]", .{});
-                    }
-                    print("\n", .{});
+            if (debug.TRACE_EXECUTION_PRINT_STACK) {
+                print("          ", .{});
+                for (self.stack.items) |slot| {
+                    print("[", .{});
+                    printValue(slot);
+                    print("]", .{});
                 }
+                print("\n", .{});
             }
 
             const byte = self.readByte();
@@ -290,14 +285,14 @@ pub const VM = struct {
                 .GetLocal => {
                     const slot = self.readByte();
                     // TODO: remove debugging
-                    if (DEBUG_TRACE_EXECUTION and DEBUG_TRACE_EXECUTION_SHOW_GET_SET_VARS) {
+                    if (debug.TRACE_EXECUTION_SHOW_GET_SET_VARS) {
                         print(".GetLocal slot = {any}, slotOffset = {any}, stack.items.len = {any}\n", .{ slot, self.frame.slotOffset, self.stack.items.len });
                     }
                     try self.push(self.stack.items[self.frame.slotOffset + slot]);
                 },
                 .SetLocal => {
                     const slot = self.readByte();
-                    if (DEBUG_TRACE_EXECUTION and DEBUG_TRACE_EXECUTION_SHOW_GET_SET_VARS) {
+                    if (debug.TRACE_EXECUTION_SHOW_GET_SET_VARS) {
                         print(".SetLocal slot = {any}, slotOffset = {any}, stack.items.len = {any}\n", .{ slot, self.frame.slotOffset, self.stack.items.len });
                     }
                     self.stack.items[self.frame.slotOffset + slot] = self.peek(0);
