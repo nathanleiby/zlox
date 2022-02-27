@@ -78,8 +78,8 @@ pub const Chunk = struct {
     }
 
     pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
-        const byte = chunk.code.items[offset];
         print("{:04} ", .{offset});
+        const byte = chunk.code.items[offset];
         // line
         if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
             print("   | ", .{});
@@ -119,14 +119,14 @@ pub const Chunk = struct {
 };
 
 fn printName(name: []const u8) void {
-    print("{s: <16}", .{name});
+    print("{s: <20}", .{name});
 }
 
 fn constantInstruction(name: []const u8, chunk: Chunk, offset: usize) usize {
     printName(name);
 
     const constantIdx = chunk.code.items[offset + 1];
-    print("{:04} -- ", .{constantIdx});
+    print("const idx={:02} val=", .{constantIdx});
     printValue(chunk.values.items[constantIdx]);
     print("\n", .{});
 

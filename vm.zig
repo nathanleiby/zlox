@@ -182,6 +182,7 @@ pub const VM = struct {
                     }
                     // after function call, return to calling frame
                     self.frame = &self.frames[self.frameCount - 1];
+                    self.chunk = self.frame.function.chunk;
                 },
                 .Return => {
                     const result: Value = self.pop();
@@ -198,6 +199,7 @@ pub const VM = struct {
                     // add return value to the stack and update the calling frame
                     try self.push(result);
                     self.frame = &self.frames[self.frameCount - 1];
+                    self.chunk = self.frame.function.chunk;
                 },
                 .Negate => {
                     if (!(@as(Value, self.peek(0)) == Value.number)) {
@@ -373,6 +375,7 @@ pub const VM = struct {
         frame.slotOffset = self.stack.items.len - argCount - 1;
 
         self.frameCount += 1;
+        self.chunk = func.chunk; // start processing the chunk that was called
 
         return true;
     }

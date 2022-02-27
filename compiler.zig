@@ -153,7 +153,7 @@ const Compiler = struct {
 };
 
 // TODO: use a class-like setup here instead of global var
-var current: Compiler = undefined;
+var current: *Compiler = undefined;
 var scanner: Scanner = undefined;
 var parser: Parser = undefined;
 var objManager: *ObjManager = undefined;
@@ -164,7 +164,9 @@ pub fn compile(source: []u8, om: *ObjManager) !*ObjFunction {
 
     // setup the compiler
     objManager = om;
-    current = try Compiler.init(FunctionType.Script, objManager, &current);
+    var compiler = try Compiler.init(FunctionType.Script, objManager, current);
+    current = &compiler;
+
     scanner = Scanner.init(source);
     parser = Parser{
         // start with placeholder tokens
@@ -408,7 +410,9 @@ fn parseFunctionArg() !void {
 }
 
 fn function(type_: FunctionType) !void {
-    current = try Compiler.init(type_, objManager, &current);
+    var newCompiler = try Compiler.init(type_, objManager, current);
+    current = &newCompiler;
+
     beginScope();
 
     consume(TokenType.LEFT_PAREN, "Expect '(' after function name.");
@@ -654,7 +658,7 @@ fn namedVariable(token: Token, canAssign: bool) !void {
 }
 
 // TODO: Why would this fn take the compiler as an arg whereas it gets passed in as a global?
-fn resolveLocal(compilerInstance: Compiler, token: Token) compilerError!usize {
+fn resolveLocal(compilerInstance: *Compiler, token: Token) compilerError!usize {
     var i: usize = compilerInstance.localCount;
     while (true) {
         const local = compilerInstance.locals[i];
@@ -810,11 +814,12 @@ fn endCompiler() *ObjFunction {
                 name = fname.*.chars;
             }
             currentChunk().disassemble(name);
+            print("\n", .{});
         }
     }
 
     // when a Compiler finishes, it pops itself off the stack by restoring the previous compiler
-    current = current.enclosing.*;
+    current = current.enclosing;
 
     return func;
 }
