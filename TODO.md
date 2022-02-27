@@ -38,3 +38,5 @@
   > { var a = 5; print a; }
   5
   ```
+- [ ] refactor VM code so that self.chunk and self.frame don't BOTH have to update.
+  - perhaps all references to `self.chunk` should `self.frame.function.chunk`

@@ -130,23 +130,22 @@ pub const VM = struct {
         print("runtimeError: ", .{});
         print(fmt, args);
         print("\n", .{});
-        const instruction = self.frame.ip;
-        const line = self.chunk.lines.items[instruction];
-        print("[line {d}] in script\n", .{line});
 
-        // TODO: print stack trace
-        // for (int i = vm.frameCount - 1; i >= 0; i--) {
-        //     CallFrame* frame = &vm.frames[i];
-        //     ObjFunction* function = frame->function;
-        //     size_t instruction = frame->ip - function->chunk.code - 1;
-        //     fprintf(stderr, "[line %d] in ",
-        //             function->chunk.lines[instruction]);
-        //     if (function->name == NULL) {
-        //     fprintf(stderr, "script\n");
-        //     } else {
-        //     fprintf(stderr, "%s()\n", function->name->chars);
-        //     }
-        // }
+        var i = self.frameCount - 1;
+        while (i >= 0) {
+            const frame = &self.frames[i];
+            print("[line {d}] in ", .{frame.function.chunk.lines.items[frame.ip]});
+            if (frame.function.name) |fname| {
+                print("{s}()\n", .{fname.chars});
+            } else {
+                print("script\n", .{});
+            }
+
+            if (i == 0) {
+                break;
+            }
+            i -= 1;
+        }
 
         // TODO: actually reset the stack
         // resetStack();
