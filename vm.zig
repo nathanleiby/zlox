@@ -126,9 +126,10 @@ pub const VM = struct {
         // self.stack.init();
     }
 
-    //static void runtimeError(const char* format, ...) {
-    fn runtimeError(self: *VM, message: []const u8) void {
-        print("runtimeError: {s}\n", .{message});
+    fn runtimeError(self: *VM, comptime fmt: []const u8, args: anytype) void {
+        print("runtimeError: ", .{});
+        print(fmt, args);
+        print("\n", .{});
         const instruction = self.frame.ip;
         const line = self.chunk.lines.items[instruction];
         print("[line {d}] in script\n", .{line});
@@ -200,7 +201,7 @@ pub const VM = struct {
                 },
                 .Negate => {
                     if (!(@as(Value, self.peek(0)) == Value.number)) {
-                        self.runtimeError("Negation operand must be a number.");
+                        self.runtimeError("Negation operand must be a number.", .{});
                         return InterpretResult.RuntimeError;
                     }
                     try self.stack.append(Value{ .number = -self.stack.pop().number });
@@ -226,7 +227,7 @@ pub const VM = struct {
                         const a = self.stack.pop();
                         try self.concatenate(a.asCString(), b.asCString());
                     } else {
-                        self.runtimeError("Operands must be two numbers or two strings.");
+                        self.runtimeError("Operands must be two numbers or two strings.", .{});
                         return InterpretResult.RuntimeError;
                     }
                 },
@@ -234,7 +235,7 @@ pub const VM = struct {
                     if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
                         try self.binaryOp(instruction);
                     } else {
-                        self.runtimeError("Operands must be two numbers.");
+                        self.runtimeError("Operands must be two numbers.", .{});
                         return InterpretResult.RuntimeError;
                     }
                 },
@@ -264,7 +265,7 @@ pub const VM = struct {
                         try self.stack.append(val);
                     } else {
                         // TODO: dynamically create a string and pass in name
-                        self.runtimeError("Undefined variable 'TODO:passVarName'.");
+                        self.runtimeError("Undefined variable '{s}'.", .{name});
                         return InterpretResult.RuntimeError;
                     }
                 },
@@ -278,7 +279,7 @@ pub const VM = struct {
                         // delete the new value
                         _ = self.objManager.globals.remove(name);
                         // TODO: dynamically create a string and pass in name
-                        self.runtimeError("Undefined variable 'TODO:passVarName'.");
+                        self.runtimeError("Undefined variable '{s}'.", .{name});
                         return InterpretResult.RuntimeError;
                     }
                 },
@@ -350,20 +351,18 @@ pub const VM = struct {
         if (callee.isFunction()) {
             return self.call(callee.asFunction(), argCount);
         }
-        self.runtimeError("Can only call functions and classes.");
+        self.runtimeError("Can only call functions and classes.", .{});
         return false;
     }
 
     fn call(self: *VM, func: *ObjFunction, argCount: u8) bool {
         if (argCount != func.arity) {
-            // TODO: print dynamic buffer
-            // self.runtimeError("Expected {d} arguments but got {d}.", func.arity, argCount);
-            self.runtimeError("Expected <x> arguments but got <y>. (TODO)");
+            self.runtimeError("Expected {d} arguments but got {d}.", .{ func.arity, argCount });
             return false;
         }
 
         if (self.frameCount == FRAMES_MAX) {
-            self.runtimeError("Stack overflow.");
+            self.runtimeError("Stack overflow.", .{});
             return false;
         }
 
