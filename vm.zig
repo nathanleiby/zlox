@@ -154,7 +154,6 @@ pub const VM = struct {
                 }
 
                 if (DEBUG_TRACE_EXECUTION_PRINT_STACK) {
-                    _ = self.frame.function.chunk.disassembleInstruction(self.frame.ip);
                     print("          ", .{});
                     for (self.stack.items) |slot| {
                         print("[", .{});

@@ -20,11 +20,6 @@ const U8_COUNT = @import("./constants.zig").U8_COUNT;
 const U16_MAX = @import("./constants.zig").U16_MAX;
 const MAX_CONSTANTS = 256;
 
-var objManager: *ObjManager = undefined;
-pub fn setObjManager(om: *ObjManager) void {
-    objManager = om;
-}
-
 const compilerError = error{
     TODO,
     LocalNotFound,
@@ -32,7 +27,7 @@ const compilerError = error{
 };
 
 // Debugging flags
-const DEBUG_PRINT_CODE = true; // TODO: try out comptime
+const DEBUG_PRINT_CODE = false; // TODO: try out comptime
 const DEBUG_MODE = false;
 
 const Precedence = enum {
@@ -134,19 +129,25 @@ const Compiler = struct {
     function: *ObjFunction,
     type_: FunctionType,
 
+    enclosing: *Compiler,
+
     locals: [U8_COUNT]Local,
     localCount: u8,
     scopeDepth: i16,
 
-    pub fn init(type_: FunctionType, om: *ObjManager) !Compiler {
+    pub fn init(type_: FunctionType, om: *ObjManager, enclosing: *Compiler) !Compiler {
         var c = Compiler{
             .function = undefined, // see 24.2.1 .. revisit in light of garbage collector
             .type_ = type_,
             .locals = [_]Local{Local{ .token = undefined, .depth = 0 }} ** U8_COUNT,
             .localCount = 1, // claim 1 local as a placeholder
             .scopeDepth = 0,
+            .enclosing = enclosing,
         };
         c.function = try om.newFunction();
+        if (type_ != FunctionType.Script) {
+            c.function.name = try om.copyString(tokenString(parser.previous));
+        }
 
         return c;
     }
@@ -156,14 +157,15 @@ const Compiler = struct {
 var current: Compiler = undefined;
 var scanner: Scanner = undefined;
 var parser: Parser = undefined;
+var objManager: *ObjManager = undefined;
 
 pub fn compile(source: []u8, om: *ObjManager) !*ObjFunction {
-    current = try Compiler.init(FunctionType.Script, om);
-
     // startup -- could be comptime TODO
     initRules();
-    setObjManager(om);
 
+    // setup the compiler
+    objManager = om;
+    current = try Compiler.init(FunctionType.Script, objManager, &current);
     scanner = Scanner.init(source);
     parser = Parser{
         // start with placeholder tokens
@@ -173,16 +175,17 @@ pub fn compile(source: []u8, om: *ObjManager) !*ObjFunction {
         .panicMode = false,
     };
 
+    // run the parser/compiler
     advance(); // prime
     // scan tokens
     while (!match(TokenType.EOF)) {
         try declaration();
     }
-    const function = endCompiler();
+    const func = endCompiler();
     if (parser.hadError) {
         return compilerError.ParserError;
     } else {
-        return function;
+        return func;
     }
 }
 
@@ -217,7 +220,9 @@ fn check(ttype: TokenType) bool {
 ////////////////////
 // TODO: using compilerError for now to work around https://github.com/ziglang/zig/issues/2971
 fn declaration() compilerError!void {
-    if (match(TokenType.VAR)) {
+    if (match(TokenType.FUN)) {
+        funDeclaration() catch return compilerError.TODO;
+    } else if (match(TokenType.VAR)) {
         varDeclaration() catch return compilerError.TODO;
     } else {
         statement() catch return compilerError.TODO;
@@ -228,6 +233,13 @@ fn declaration() compilerError!void {
         // try to resume from the next statement.
         synchronize();
     }
+}
+
+fn funDeclaration() !void {
+    const global = try parseVariable("Expect function name");
+    markInitialized();
+    try function(FunctionType.Function);
+    defineVariable(global);
 }
 
 fn varDeclaration() !void {
@@ -275,12 +287,10 @@ fn defineVariable(constantsRef: u8) void {
 fn declareVariable() void {
     // handle globle variables
     if (current.scopeDepth == 0) {
-        print("Variable is global: {s}\n", .{tokenString(parser.previous)});
         return;
     }
 
     const curToken = parser.previous;
-    print("Declaring variable: {s}\n", .{tokenString(curToken)});
 
     // Check if we're declaring the same varible again within the current scope, i.e.
     // {
@@ -320,6 +330,7 @@ fn addLocal(token: Token) void {
 }
 
 fn markInitialized() void {
+    if (current.scopeDepth == 0) return; // function bound to a global variable
     current.locals[current.localCount - 1].depth = current.scopeDepth;
 }
 
@@ -384,6 +395,34 @@ fn block() !void {
     }
 
     consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
+}
+
+fn parseFunctionArg() !void {
+    current.function.arity += 1;
+    if (current.function.arity > 255) {
+        errorAtCurrent("Can't have more than 255 parameters.");
+    }
+    const constant = try parseVariable("Expect parameter name.");
+    defineVariable(constant);
+}
+
+fn function(type_: FunctionType) !void {
+    current = try Compiler.init(type_, objManager, &current);
+    beginScope();
+
+    consume(TokenType.LEFT_PAREN, "Expect '(' after function name.");
+    if (!check(TokenType.RIGHT_PAREN)) {
+        try parseFunctionArg();
+        while (match(TokenType.COMMA)) {
+            try parseFunctionArg();
+        }
+    }
+    consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
+    consume(TokenType.LEFT_BRACE, "Expect '{' before function body.");
+    try block();
+
+    const func: *ObjFunction = endCompiler();
+    emitBytes(@enumToInt(OpCode.Constant), makeConstant(Value{ .objFunction = func }));
 }
 
 fn printStatement() void {
@@ -723,10 +762,11 @@ fn currentChunk() *Chunk {
 
 fn endCompiler() *ObjFunction {
     emitReturn();
-    const function = current.function;
+    const func = current.function;
     if (DEBUG_PRINT_CODE) {
         if (!parser.hadError) {
             var name: []const u8 = "<script>";
+            // TODO
             // if (function.name != undefined) {
             //     name = function.name.*.chars;
             // }
@@ -734,7 +774,10 @@ fn endCompiler() *ObjFunction {
         }
     }
 
-    return function;
+    // when a Compiler finishes, it pops itself off the stack by restoring the previous compiler
+    current = current.enclosing.*;
+
+    return func;
 }
 
 fn emitConstant(value: Value) void {
