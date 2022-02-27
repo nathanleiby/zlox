@@ -32,6 +32,7 @@ pub const OpCode = enum(u8) {
     JumpIfFalse,
     Jump,
     Loop,
+    Call,
 };
 
 pub const Chunk = struct {
@@ -88,6 +89,7 @@ pub const Chunk = struct {
 
         const item = @intToEnum(OpCode, byte);
         switch (item) {
+            .Call => return byteInstruction("OP_CALL", chunk, offset),
             .Return => return simpleInstruction("OP_RETURN", offset),
             .Constant => return constantInstruction("OP_CONSTANT", chunk, offset),
             .Negate => return simpleInstruction("OP_NEGATE", offset),

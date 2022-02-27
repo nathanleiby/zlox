@@ -80,12 +80,7 @@ pub const VM = struct {
 
         const fnVal = Value{ .objFunction = function };
         try self.push(fnVal);
-
-        var frame: *CallFrame = &self.frames[self.frameCount];
-        self.frameCount += 1;
-        frame.function = function;
-        frame.ip = 0;
-        frame.slotOffset = self.stack.items.len - 1; // TODO: not sure about this
+        _ = self.call(function, 0);
 
         const result = try self.run();
         return result;
@@ -140,6 +135,22 @@ pub const VM = struct {
         const instruction = self.frame.ip;
         const line = self.chunk.lines.items[instruction];
         print("[line {d}] in script\n", .{line});
+
+        // TODO: print stack trace
+        // for (int i = vm.frameCount - 1; i >= 0; i--) {
+        //     CallFrame* frame = &vm.frames[i];
+        //     ObjFunction* function = frame->function;
+        //     size_t instruction = frame->ip - function->chunk.code - 1;
+        //     fprintf(stderr, "[line %d] in ",
+        //             function->chunk.lines[instruction]);
+        //     if (function->name == NULL) {
+        //     fprintf(stderr, "script\n");
+        //     } else {
+        //     fprintf(stderr, "%s()\n", function->name->chars);
+        //     }
+        // }
+
+        // TODO: actually reset the stack
         // resetStack();
     }
 
@@ -168,8 +179,29 @@ pub const VM = struct {
             const instruction = @intToEnum(OpCode, byte);
 
             switch (instruction) {
+                .Call => {
+                    const argCount = self.readByte();
+                    if (!self.callValue(self.peek(argCount), @truncate(u8, argCount))) {
+                        return InterpretResult.RuntimeError;
+                    }
+                    // after function call, return to calling frame
+                    self.frame = &self.frames[self.frameCount - 1];
+                },
                 .Return => {
-                    return InterpretResult.Ok;
+                    const result: Value = self.pop();
+
+                    // move outward one frame
+                    self.frameCount -= 1;
+
+                    // are we returning from the script?
+                    if (self.frameCount == 0) {
+                        _ = self.pop();
+                        return InterpretResult.Ok;
+                    }
+
+                    // add return value to the stack and update the calling frame
+                    try self.push(result);
+                    self.frame = &self.frames[self.frameCount - 1];
                 },
                 .Negate => {
                     if (!(@as(Value, self.peek(0)) == Value.number)) {
@@ -317,6 +349,38 @@ pub const VM = struct {
         var s = try self.objManager.takeString(result);
         const v = Value{ .objString = s };
         try self.stack.append(v);
+    }
+
+    fn callValue(self: *VM, callee: Value, argCount: u8) bool {
+        if (callee.isFunction()) {
+            return self.call(callee.asFunction(), argCount);
+        }
+        self.runtimeError("Can only call functions and classes.");
+        return false;
+    }
+
+    fn call(self: *VM, func: *ObjFunction, argCount: u8) bool {
+        if (argCount != func.arity) {
+            // TODO: print dynamic buffer
+            // self.runtimeError("Expected {d} arguments but got {d}.", func.arity, argCount);
+            self.runtimeError("Expected <x> arguments but got <y>. (TODO)");
+            return false;
+        }
+
+        if (self.frameCount == FRAMES_MAX) {
+            self.runtimeError("Stack overflow.");
+            return false;
+        }
+
+        // Add a new call frame
+        const frame: *CallFrame = &self.frames[self.frameCount];
+        frame.function = func;
+        frame.ip = 0;
+        frame.slotOffset = self.stack.items.len - argCount - 1;
+
+        self.frameCount += 1;
+
+        return true;
     }
 };
 

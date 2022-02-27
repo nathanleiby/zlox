@@ -64,7 +64,7 @@ const numRules = 40;
 var rules: [numRules]ParseRule = undefined; // TODO: Is it possible to declare this more directly (vs numRules and initRules())
 
 fn initRules() void {
-    rules[@enumToInt(TokenType.LEFT_PAREN)] = ParseRule{ .prefix = grouping, .infix = undefined, .precedence = Precedence.None };
+    rules[@enumToInt(TokenType.LEFT_PAREN)] = ParseRule{ .prefix = grouping, .infix = call, .precedence = Precedence.Call };
     rules[@enumToInt(TokenType.RIGHT_PAREN)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.None };
     rules[@enumToInt(TokenType.LEFT_BRACE)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.None };
     rules[@enumToInt(TokenType.RIGHT_BRACE)] = ParseRule{ .prefix = undefined, .infix = undefined, .precedence = Precedence.None };
@@ -728,6 +728,31 @@ fn binary(_: bool) void {
     }
 }
 
+fn call(_: bool) void {
+    const argCount = argumentList();
+    emitBytes(@enumToInt(OpCode.Call), argCount);
+}
+
+fn argumentList() u8 {
+    var argCount: u8 = 0;
+    if (!check(TokenType.RIGHT_PAREN)) {
+        argCount = argumentListItem(argCount);
+        while (match(TokenType.COMMA)) {
+            argCount = argumentListItem(argCount);
+        }
+    }
+    consume(TokenType.RIGHT_PAREN, "Expect ')' after arguments.");
+    return argCount;
+}
+
+fn argumentListItem(argCount: u8) u8 {
+    expression();
+    if (argCount == 255) {
+        err("Can't have more than 255 arguments.");
+    }
+    return argCount + 1;
+}
+
 fn getRule(ttype: TokenType) *ParseRule {
     return &rules[@enumToInt(ttype)];
 }
@@ -798,6 +823,7 @@ fn makeConstant(value: Value) u8 {
 }
 
 fn emitReturn() void {
+    emitByte(@enumToInt(OpCode.Nil)); // if no return is specified, default to nil
     emitByte(@enumToInt(OpCode.Return));
 }
 
