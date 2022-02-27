@@ -5,10 +5,11 @@ const expectEqualStrings = std.testing.expectEqualStrings;
 
 const ObjString = @import("./object.zig").ObjString;
 const ObjFunction = @import("./object.zig").ObjFunction;
+const ObjNative = @import("./object.zig").ObjNative;
 
 // More info on unions in Zig:
 // https://ziglang.org/documentation/master/#union
-pub const ValueType = enum { boolean, number, nil, objString, objFunction };
+pub const ValueType = enum { boolean, number, nil, objString, objFunction, objNative };
 
 pub const Value = union(ValueType) {
     boolean: bool,
@@ -16,6 +17,7 @@ pub const Value = union(ValueType) {
     nil: void,
     objString: *ObjString,
     objFunction: *ObjFunction,
+    objNative: *ObjNative,
 
     pub fn isNumber(self: Value) bool {
         return (@as(Value, self) == Value.number);
@@ -35,6 +37,10 @@ pub const Value = union(ValueType) {
 
     pub fn asFunction(self: Value) *ObjFunction {
         return self.objFunction;
+    }
+
+    pub fn isNative(self: Value) bool {
+        return (@as(Value, self) == Value.objNative);
     }
 
     pub fn isFalsey(self: Value) bool {
@@ -75,6 +81,7 @@ pub fn valuesEqual(a: Value, b: Value) bool {
         ValueType.number => return a.number == b.number,
         ValueType.objString => return std.mem.eql(u8, a.asCString(), b.asCString()),
         Value.objFunction => return &a == &b, // TODO
+        Value.objNative => return &a == &b, // TODO
     }
 }
 
@@ -91,6 +98,7 @@ pub fn printValue(value: Value) void {
                 print("<script>", .{});
             }
         },
+        Value.objNative => |_| print("<native fn>", .{}),
     }
 }
 

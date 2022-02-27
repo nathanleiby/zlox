@@ -14,6 +14,7 @@ const printValue = @import("./value.zig").printValue;
 const ObjManager = @import("./object.zig").ObjManager;
 const ObjString = @import("./object.zig").ObjString;
 const ObjFunction = @import("./object.zig").ObjFunction;
+const NativeFunction = @import("./object.zig").NativeFunction;
 
 const compiler = @import("./compiler.zig");
 const concat = @import("./memory.zig").concat;
@@ -38,6 +39,11 @@ const CallFrame = struct {
     slotOffset: usize,
 };
 
+fn clockNative(_: u8) Value {
+    const ts = std.time.timestamp();
+    return Value{ .number = @intToFloat(f64, ts) };
+}
+
 const FRAMES_MAX = 64;
 const STACK_MAX = FRAMES_MAX * U8_COUNT;
 
@@ -51,7 +57,7 @@ pub const VM = struct {
     ip: usize, // instruction pointer
 
     pub fn init(a: Allocator) !VM {
-        return VM{
+        var vm = VM{
             .objManager = try ObjManager.init(a),
             .stack = std.ArrayList(Value).init(a),
             // to allow allocating more memory within compile(), e.g. to store strings
@@ -61,6 +67,10 @@ pub const VM = struct {
             .frameCount = 0,
             .frame = undefined,
         };
+
+        try vm.defineNative("clock", clockNative);
+
+        return vm;
     }
 
     pub fn free(self: *VM) void {
@@ -171,7 +181,7 @@ pub const VM = struct {
             switch (instruction) {
                 .Call => {
                     const argCount = self.readByte();
-                    if (!self.callValue(self.peek(argCount), @truncate(u8, argCount))) {
+                    if (!try self.callValue(self.peek(argCount), @truncate(u8, argCount))) {
                         return InterpretResult.RuntimeError;
                     }
                     // after function call, return to calling frame
@@ -341,9 +351,20 @@ pub const VM = struct {
         try self.stack.append(v);
     }
 
-    fn callValue(self: *VM, callee: Value, argCount: u8) bool {
+    fn callValue(self: *VM, callee: Value, argCount: u8) !bool {
         if (callee.isFunction()) {
             return self.call(callee.asFunction(), argCount);
+        } else if (callee.isNative()) {
+            const native: NativeFunction = callee.objNative.function;
+            const result: Value = native(argCount);
+            var i: u8 = 0;
+            while (i < argCount) {
+                _ = self.stack.pop();
+                i += 1;
+            }
+
+            try self.push(result);
+            return true;
         }
         self.runtimeError("Can only call functions and classes.", .{});
         return false;
@@ -369,6 +390,14 @@ pub const VM = struct {
         self.frameCount += 1;
 
         return true;
+    }
+
+    fn defineNative(self: *VM, name: []const u8, function: NativeFunction) !void {
+        try self.push(Value{ .objString = try self.objManager.copyString(name) });
+        try self.push(Value{ .objNative = try self.objManager.newNative(function) });
+        try self.objManager.globals.put(self.stack.items[0].asCString(), self.stack.items[1]);
+        _ = self.pop();
+        _ = self.pop();
     }
 };
 

@@ -19,10 +19,17 @@ pub const ObjFunction = struct {
     name: ?*ObjString = null,
 };
 
+pub const ObjNative = struct {
+    function: NativeFunction,
+};
+
+pub const NativeFunction = fn (argCount: u8) Value;
+
 pub const ObjManager = struct {
     allocator: Allocator,
     objects: std.ArrayList(*ObjString),
     objectFns: std.ArrayList(*ObjFunction),
+    objectNatives: std.ArrayList(*ObjNative),
     strings: std.StringHashMap(*ObjString),
     globals: std.StringHashMap(Value),
 
@@ -31,6 +38,7 @@ pub const ObjManager = struct {
         om.allocator = allocator;
         om.objects = std.ArrayList(*ObjString).init(allocator);
         om.objectFns = std.ArrayList(*ObjFunction).init(allocator);
+        om.objectNatives = std.ArrayList(*ObjNative).init(allocator);
         om.strings = std.StringHashMap(*ObjString).init(allocator);
         om.globals = std.StringHashMap(Value).init(allocator);
         return om;
@@ -54,11 +62,21 @@ pub const ObjManager = struct {
         }
         self.allocator.free(ownedSlice2);
 
+        // free the ObjNative's
+        const ownedSlice3 = self.objectNatives.toOwnedSlice();
+        for (ownedSlice3) |o| {
+            self.allocator.destroy(o);
+        }
+        self.allocator.free(ownedSlice3);
+
         // free the objects arraylist
         self.objects.deinit();
 
         // free the objectFns arraylist
         self.objectFns.deinit();
+
+        // free the objectFns arraylist
+        self.objectNatives.deinit();
 
         // free the strings hash table
         self.strings.deinit();
@@ -115,6 +133,16 @@ pub const ObjManager = struct {
 
         return function;
     }
+
+    pub fn newNative(self: *ObjManager, function: NativeFunction) !*ObjNative {
+        var native: *ObjNative = try self.allocator.create(ObjNative);
+        native.function = function;
+
+        // capture this object, so we can free later
+        try self.objectNatives.append(native);
+
+        return native;
+    }
 };
 
 test "Copy a string" {
@@ -153,4 +181,13 @@ test "obj manager can create a function object" {
     defer om.free();
 
     _ = try om.newFunction();
+}
+
+test "obj manager can create a native function object" {
+    const allocator = std.testing.allocator;
+
+    var om = try ObjManager.init(allocator);
+    defer om.free();
+
+    _ = try om.newNative();
 }
