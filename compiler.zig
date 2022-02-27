@@ -361,6 +361,8 @@ fn statement() compilerError!void {
         printStatement();
     } else if (match(TokenType.IF)) {
         ifStatement() catch return compilerError.TODO;
+    } else if (match(TokenType.RETURN)) {
+        returnStatement();
     } else if (match(TokenType.WHILE)) {
         whileStatement() catch return compilerError.TODO;
     } else if (match(TokenType.FOR)) {
@@ -428,6 +430,21 @@ fn printStatement() void {
     expression();
     consume(TokenType.SEMICOLON, "Expect ';' after value.");
     emitByte(@enumToInt(OpCode.Print));
+}
+
+fn returnStatement() void {
+    if (current.type_ == FunctionType.Script) {
+        err("Can't return from top-level code.");
+    }
+
+    if (match(TokenType.SEMICOLON)) {
+        // emitByte(@enumToInt(OpCode.Nil));
+        emitReturn();
+    } else {
+        expression();
+        consume(TokenType.SEMICOLON, "Expect ';' after return value.");
+        emitByte(@enumToInt(OpCode.Return));
+    }
 }
 
 fn ifStatement() !void {
