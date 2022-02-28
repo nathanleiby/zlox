@@ -38,3 +38,5 @@
   > { var a = 5; print a; }
   5
   ```
+- [ ] test colors aren't showing up in GithubActions
+  - more context on what should be supported .. https://github.blog/2020-09-23-a-better-logs-experience-with-github-actions/#opening-the-door-to-a-more-colorful-experience

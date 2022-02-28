@@ -1,0 +1,39 @@
+fun decrement_loop(name, n) {
+  print name;
+  print n;
+  if (n == 1) return n;
+  var x = n-1;
+  var sum;
+  var left;
+  var right;
+  left = decrement_loop("left", x) ;
+  right = decrement_loop("right", x);
+  sum = left + right;
+
+    // General bug: relates to inline local variable declarations
+    // TODO: Try to find a simpler repro
+    //
+    //   var sum = decrement_loop("left", x) + decrement_loop("right", x);
+    // !=
+    //   var sum;
+    //   sum = decrement_loop("left", x) + decrement_loop("right", x);
+    //
+    // ... similarly ...
+    //
+    //   var sum;
+    //   var left;
+    //   var right;
+    //   left = decrement_loop("left", x) ;
+    //   right = decrement_loop("right", x);
+    //   sum = left + right;
+    // !=
+    // var sum;
+    // sum = decrement_loop("left", x) + decrement_loop("right", x);
+
+
+  print "sum";
+  print sum;
+  return sum;
+}
+
+print decrement_loop("start", 3);
