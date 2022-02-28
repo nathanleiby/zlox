@@ -183,11 +183,15 @@ test "obj manager can create a function object" {
     _ = try om.newFunction();
 }
 
+fn nativeAnswerToLife(_: u8) Value {
+    return Value{ .number = 42 };
+}
+
 test "obj manager can create a native function object" {
     const allocator = std.testing.allocator;
 
     var om = try ObjManager.init(allocator);
     defer om.free();
 
-    _ = try om.newNative();
+    _ = try om.newNative(nativeAnswerToLife);
 }
