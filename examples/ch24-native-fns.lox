@@ -1,0 +1,26 @@
+
+fun fib(n) {
+  if (n < 2) return n;
+  var x;
+  x = fib(n - 2);
+  var y;
+  y = fib(n - 1);
+  return x + y;
+  // return fib(n-2) + fib(n-1); // TODO: this doesn't work
+}
+
+var start = clockMs();
+print "start (ms):";
+print start;
+print fib(30);
+var end = clockMs();
+print "end (ms):";
+print end;
+
+print "duration (ms):";
+print end - start;
+
+print "duration (s):";
+print (end - start) / 1000;
+
+// print (clockMs() - start) / 1000; // TODO: this doens't work

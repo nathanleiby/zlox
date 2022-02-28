@@ -41,7 +41,14 @@ const CallFrame = struct {
 
 fn clockNative(_: u8) Value {
     const ts = std.time.timestamp();
-    return Value{ .number = @intToFloat(f64, ts) };
+    const tsFloat = @intToFloat(f64, ts);
+    return Value{ .number = tsFloat };
+}
+
+fn clockNativeMs(_: u8) Value {
+    const ts = std.time.milliTimestamp();
+    const tsFloat = @intToFloat(f64, ts);
+    return Value{ .number = tsFloat };
 }
 
 const FRAMES_MAX = 64;
@@ -69,6 +76,7 @@ pub const VM = struct {
         };
 
         try vm.defineNative("clock", clockNative);
+        try vm.defineNative("clockMs", clockNativeMs);
 
         return vm;
     }
@@ -357,11 +365,17 @@ pub const VM = struct {
         } else if (callee.isNative()) {
             const native: NativeFunction = callee.objNative.function;
             const result: Value = native(argCount);
-            var i: u8 = 0;
-            while (i < argCount) {
-                _ = self.stack.pop();
-                i += 1;
-            }
+            // TODO: add support for a native function that takes arguments
+            //  could also be args I invent..
+            //  e.g. could pass "s", "ms", "ns" to the clock() function, if desired
+            //
+            // Might also need to pop off the method itself
+            // var i: u8 = 0;
+            // while (i < argCount) {
+            //     _ = self.stack.pop();
+            //     i += 1;
+            // }
+            // _ = self.stack.pop(); // remove the native fn
 
             try self.push(result);
             return true;

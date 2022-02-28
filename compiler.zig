@@ -805,6 +805,11 @@ fn currentChunk() *Chunk {
 }
 
 fn endCompiler() *ObjFunction {
+    // TODO: if the fn has a return statement, this emits an extra return nil in the bytecode
+    // ex...
+    //   35    | OP_RETURN
+    //   36    5 OP_NIL
+    //   37    | OP_RETURN
     emitReturn();
     const func = current.function;
     if (debug.PRINT_CODE_AFTER_END_COMPILER) {
