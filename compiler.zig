@@ -134,7 +134,7 @@ const Compiler = struct {
     function: *ObjFunction,
     type_: FunctionType,
 
-    enclosing: *Compiler,
+    enclosing: ?*Compiler,
 
     locals: [U8_COUNT]Local,
     localCount: u8,
@@ -897,7 +897,13 @@ fn endCompiler() *ObjFunction {
     }
 
     // when a Compiler finishes, it pops itself off the stack by restoring the previous compiler
-    current = current.enclosing;
+    if (current.enclosing) |enclosing| {
+        current = enclosing;
+    } else {
+        // we're at the top of the stack, so we're done
+        // unsafe warning warning
+        current = undefined;
+    }
 
     return func;
 }
