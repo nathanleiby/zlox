@@ -37,20 +37,12 @@ pub const Value = union(ValueType) {
         return (@as(Value, self) == Value.objFunction);
     }
 
-    pub fn asFunction(self: Value) *ObjFunction {
-        return self.objFunction;
-    }
-
     pub fn isNative(self: Value) bool {
         return (@as(Value, self) == Value.objNative);
     }
 
     pub fn isClosure(self: Value) bool {
         return (@as(Value, self) == Value.objClosure);
-    }
-
-    pub fn asClosure(self: Value) bool {
-        return self.objClosure;
     }
 
     pub fn isFalsey(self: Value) bool {

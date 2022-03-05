@@ -13,7 +13,7 @@ const printValue = @import("./value.zig").printValue;
 
 const ObjManager = @import("./object.zig").ObjManager;
 const ObjString = @import("./object.zig").ObjString;
-const ObjFunction = @import("./object.zig").ObjFunction;
+const ObjClosure = @import("./object.zig").ObjClosure;
 const NativeFunction = @import("./object.zig").NativeFunction;
 
 const compiler = @import("./compiler.zig");
@@ -31,7 +31,7 @@ pub const InterpretResult = enum {
 
 const CallFrame = struct {
     // function being called
-    function: *ObjFunction,
+    closure: *ObjClosure,
     // caller stores it's own ip
     ip: usize,
     // points into the VM’s value stack at the first slot that this function can use
@@ -70,7 +70,7 @@ pub const VM = struct {
             // to allow allocating more memory within compile(), e.g. to store strings
             .allocator = a,
             .ip = 0,
-            .frames = [_]CallFrame{CallFrame{ .function = undefined, .ip = 0, .slotOffset = 0 }} ** FRAMES_MAX,
+            .frames = [_]CallFrame{CallFrame{ .closure = undefined, .ip = 0, .slotOffset = 0 }} ** FRAMES_MAX,
             .frameCount = 0,
             .frame = undefined,
         };
@@ -90,8 +90,11 @@ pub const VM = struct {
         const function = compiler.compile(source, self.objManager) catch return InterpretResult.CompileError;
 
         const fnVal = Value{ .objFunction = function };
-        try self.push(fnVal);
-        _ = self.call(function, 0);
+        try self.push(fnVal); // garbage collection dance
+        const closure = try self.objManager.newClosure(function);
+        _ = self.pop();
+        try self.push(Value{ .objClosure = closure });
+        _ = self.call(closure, 0);
 
         const result = try self.run();
         return result;
@@ -148,8 +151,8 @@ pub const VM = struct {
         var i = self.frameCount - 1;
         while (i >= 0) {
             const frame = &self.frames[i];
-            print("[line {d}] in ", .{frame.function.chunk.lines.items[frame.ip]});
-            if (frame.function.name) |fname| {
+            print("[line {d}] in ", .{frame.closure.function.chunk.lines.items[frame.ip]});
+            if (frame.closure.function.name) |fname| {
                 print("{s}()\n", .{fname.chars});
             } else {
                 print("script\n", .{});
@@ -170,7 +173,7 @@ pub const VM = struct {
 
         while (true) {
             if (debug.TRACE_EXECUTION_INCLUDE_INSTRUCTIONS) {
-                _ = self.frame.function.chunk.disassembleInstruction(self.frame.ip);
+                _ = self.frame.closure.function.chunk.disassembleInstruction(self.frame.ip);
             }
 
             if (debug.TRACE_EXECUTION_PRINT_STACK) {
@@ -324,6 +327,11 @@ pub const VM = struct {
                     // jump backward
                     self.frame.ip -= offset;
                 },
+                .Closure => {
+                    const constant = self.readConstant();
+                    const closure = try self.objManager.newClosure(constant.objFunction);
+                    try self.push(Value{ .objClosure = closure });
+                },
             }
         }
 
@@ -331,19 +339,22 @@ pub const VM = struct {
     }
 
     fn readConstant(self: *VM) Value {
-        const constantIdx = self.frame.function.chunk.code.items[self.frame.ip];
+        const function = self.frame.closure.function;
+        const constantIdx = function.chunk.code.items[self.frame.ip];
         self.frame.ip += 1;
-        return self.frame.function.chunk.values.items[constantIdx];
+        return function.chunk.values.items[constantIdx];
     }
 
     fn readByte(self: *VM) usize {
-        const byte = self.frame.function.chunk.code.items[self.frame.ip];
+        const function = self.frame.closure.function;
+        const byte = function.chunk.code.items[self.frame.ip];
         self.frame.ip += 1;
         return byte;
     }
 
     fn readShort(self: *VM) usize {
-        const short = @intCast(u16, (self.frame.function.chunk.code.items[self.frame.ip] << 8) | self.frame.function.chunk.code.items[self.frame.ip + 1]);
+        const function = self.frame.closure.function;
+        const short = @intCast(u16, (function.chunk.code.items[self.frame.ip] << 8) | function.chunk.code.items[self.frame.ip + 1]);
         self.frame.ip += 2;
         return short;
     }
@@ -360,8 +371,8 @@ pub const VM = struct {
     }
 
     fn callValue(self: *VM, callee: Value, argCount: u8) !bool {
-        if (callee.isFunction()) {
-            return self.call(callee.asFunction(), argCount);
+        if (callee.isClosure()) {
+            return self.call(callee.objClosure, argCount);
         } else if (callee.isNative()) {
             const native: NativeFunction = callee.objNative.function;
             const result: Value = native(argCount);
@@ -384,7 +395,8 @@ pub const VM = struct {
         return false;
     }
 
-    fn call(self: *VM, func: *ObjFunction, argCount: u8) bool {
+    fn call(self: *VM, closure: *ObjClosure, argCount: u8) bool {
+        const func = closure.function;
         if (argCount != func.arity) {
             self.runtimeError("Expected {d} arguments but got {d}.", .{ func.arity, argCount });
             return false;
@@ -397,7 +409,7 @@ pub const VM = struct {
 
         // Add a new call frame
         const frame: *CallFrame = &self.frames[self.frameCount];
-        frame.function = func;
+        frame.closure = closure;
         frame.ip = 0;
         frame.slotOffset = self.stack.items.len - argCount - 1;
 
