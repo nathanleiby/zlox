@@ -117,15 +117,41 @@ pub const Chunk = struct {
             .Jump => return jumpInstruction("OP_JUMP", 1, chunk, offset),
             .JumpIfFalse => return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset),
             .Loop => return jumpInstruction("OP_LOOP", -1, chunk, offset),
-            .Closure => {
-                return constantInstruction("OP_CLOSURE", chunk, offset + 1);
-            },
+            .Closure => return closureInstruction(chunk, offset),
+            .GetUpvalue => return byteInstruction("GET_UPVALUE", chunk, offset),
+            .SetUpvalue => return byteInstruction("SET_UPVALUE", chunk, offset),
         }
     }
 };
 
 fn printName(name: []const u8) void {
     print("{s: <20}", .{name});
+}
+
+fn closureInstruction(chunk: Chunk, offset: usize) usize {
+    printName("OP_CLOSURE");
+
+    const constantIdx = chunk.code.items[offset + 1];
+    print("const idx={:02} val=", .{constantIdx});
+    const constant = chunk.values.items[constantIdx];
+    printValue(constant);
+    print("\n", .{});
+
+    // print the function locals and upvalues
+    const function = constant.objFunction;
+    var j: usize = 0;
+    while (j < function.upvalueCount) {
+        const isLocal = chunk.code.items[offset + (j * 2)];
+        const index = chunk.code.items[offset + (j * 2) + 1];
+        if (isLocal == 1) {
+            print("{:04}      |                     {any} {any}\n", .{ offset + (j * 2) - 2, "local", index });
+        } else {
+            print("{:04}      |                     {any} {any}\n", .{ offset + (j * 2) - 2, "upvalue", index });
+        }
+        j += 1;
+    }
+
+    return offset + 2 + (j * 2);
 }
 
 fn constantInstruction(name: []const u8, chunk: Chunk, offset: usize) usize {

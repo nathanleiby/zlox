@@ -436,6 +436,12 @@ fn function(type_: FunctionType) !void {
 
     const func: *ObjFunction = endCompiler();
     emitBytes(@enumToInt(OpCode.Closure), makeConstant(Value{ .objFunction = func }));
+    var i: u8 = 0;
+    while (i < func.upvalueCount) {
+        emitByte(@boolToInt(newCompiler.upvalues[i].isLocal));
+        emitByte(newCompiler.upvalues[i].index);
+        i += 1;
+    }
 }
 
 fn printStatement() void {
@@ -651,15 +657,22 @@ fn namedVariable(token: Token, canAssign: bool) !void {
         arg = @truncate(u8, localArg);
         getOp = OpCode.GetLocal;
         setOp = OpCode.SetLocal;
-    } else if (resolveUpvalue(current, token)) |upvalueArg| {
+    } else |_| {
+        // ignore error
+    }
+
+    if (resolveUpvalue(current, token)) |upvalueArg| {
         arg = @truncate(u8, upvalueArg);
         getOp = OpCode.GetUpvalue;
         setOp = OpCode.SetUpvalue;
-    } else |_| { // ignore the error
-        arg = try identifierConstant(token);
-        getOp = OpCode.GetGlobal;
-        setOp = OpCode.SetGlobal;
+    } else |_| {
+        // ignore error
     }
+
+    // ignore the error
+    arg = try identifierConstant(token);
+    getOp = OpCode.GetGlobal;
+    setOp = OpCode.SetGlobal;
 
     if (canAssign and match(TokenType.EQUAL)) {
         expression();
@@ -692,13 +705,21 @@ fn resolveLocal(compilerInstance: *Compiler, token: Token) compilerError!usize {
 }
 
 fn resolveUpvalue(compilerInstance: *Compiler, token: Token) compilerError!usize {
-    if (compilerInstance.enclosing == null) {
+    if (compilerInstance.enclosing == null) { // TODO: Does this check work? is it null or undefined currently?
         // we're in the global scope
         return compilerError.UpvalueNotFound;
     }
 
-    if (resolveLocal(compilerInstance.enclosing, token)) |local| {
-        return addUpvalue(compilerInstance, local, true);
+    if (resolveLocal(compilerInstance.enclosing.?, token)) |local| {
+        return addUpvalue(compilerInstance, @truncate(u8, local), true);
+    } else |_| {
+        // ignore error
+    }
+
+    if (resolveUpvalue(compilerInstance.enclosing.?, token)) |upvalue| {
+        return addUpvalue(compilerInstance, @truncate(u8, upvalue), false);
+    } else |_| {
+        // ignore error
     }
 
     return compilerError.LocalNotFound;
@@ -708,13 +729,19 @@ fn addUpvalue(compilerInstance: *Compiler, index: u8, isLocal: bool) usize {
     const upvalueCount = compilerInstance.function.upvalueCount;
 
     // check if the upvalue is already in the list
-    var i = 0;
+    var i: u8 = 0;
     while (i < upvalueCount) {
         const upvalue = compilerInstance.upvalues[i];
         if (upvalue.index == index and upvalue.isLocal == isLocal) {
             return i;
         }
         i += 1;
+    }
+
+    // did we hit max max upvalues?
+    if (upvalueCount == U8_COUNT) {
+        err("Too many closure variables in function.");
+        return 0;
     }
 
     // if not, add a new one

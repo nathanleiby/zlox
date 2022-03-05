@@ -332,6 +332,12 @@ pub const VM = struct {
                     const closure = try self.objManager.newClosure(constant.objFunction);
                     try self.push(Value{ .objClosure = closure });
                 },
+                .GetUpvalue => {
+                    unreachable; // TODO
+                },
+                .SetUpvalue => {
+                    unreachable; // TODO
+                },
             }
         }
 
