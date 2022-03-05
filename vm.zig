@@ -14,6 +14,7 @@ const printValue = @import("./value.zig").printValue;
 const ObjManager = @import("./object.zig").ObjManager;
 const ObjString = @import("./object.zig").ObjString;
 const ObjClosure = @import("./object.zig").ObjClosure;
+const ObjUpvalue = @import("./object.zig").ObjUpvalue;
 const NativeFunction = @import("./object.zig").NativeFunction;
 
 const compiler = @import("./compiler.zig");
@@ -331,12 +332,28 @@ pub const VM = struct {
                     const constant = self.readConstant();
                     const closure = try self.objManager.newClosure(constant.objFunction);
                     try self.push(Value{ .objClosure = closure });
+
+                    // set upvalues
+                    var i: u8 = 0;
+                    while (i < closure.upvalueCount) {
+                        const isLocal = self.readByte();
+                        const index = self.readByte();
+                        if (isLocal == 1) {
+                            const valPtr = &self.stack.items[self.frame.slotOffset + index];
+                            closure.upvalues[i] = try self.captureUpvalue(valPtr);
+                        } else {
+                            closure.upvalues[i] = self.frame.closure.upvalues[index];
+                        }
+                        i += 1;
+                    }
                 },
                 .GetUpvalue => {
-                    unreachable; // TODO
+                    const slot = self.readByte();
+                    try self.push(self.frame.closure.upvalues[slot].location.*);
                 },
                 .SetUpvalue => {
-                    unreachable; // TODO
+                    const slot = self.readByte();
+                    self.frame.closure.upvalues[slot].location.* = self.peek(0);
                 },
             }
         }
@@ -430,6 +447,11 @@ pub const VM = struct {
         try self.objManager.globals.put(self.stack.items[0].asCString(), self.stack.items[1]);
         _ = self.pop();
         _ = self.pop();
+    }
+
+    fn captureUpvalue(self: *VM, local: *Value) !*ObjUpvalue {
+        const createdUpvalue: *ObjUpvalue = try self.objManager.newUpvalue(local);
+        return createdUpvalue;
     }
 };
 

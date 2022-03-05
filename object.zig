@@ -28,6 +28,12 @@ pub const NativeFunction = fn (argCount: u8) Value;
 
 pub const ObjClosure = struct {
     function: *ObjFunction,
+    upvalueCount: u8,
+    upvalues: []*ObjUpvalue,
+};
+
+pub const ObjUpvalue = struct {
+    location: *Value,
 };
 
 pub const ObjManager = struct {
@@ -36,6 +42,7 @@ pub const ObjManager = struct {
     objectFns: std.ArrayList(*ObjFunction),
     objectNatives: std.ArrayList(*ObjNative),
     objectClosures: std.ArrayList(*ObjClosure),
+    objectUpvalues: std.ArrayList(*ObjUpvalue),
     strings: std.StringHashMap(*ObjString),
     globals: std.StringHashMap(Value),
 
@@ -46,6 +53,7 @@ pub const ObjManager = struct {
         om.objectFns = std.ArrayList(*ObjFunction).init(allocator);
         om.objectNatives = std.ArrayList(*ObjNative).init(allocator);
         om.objectClosures = std.ArrayList(*ObjClosure).init(allocator);
+        om.objectUpvalues = std.ArrayList(*ObjUpvalue).init(allocator);
         om.strings = std.StringHashMap(*ObjString).init(allocator);
         om.globals = std.StringHashMap(Value).init(allocator);
         return om;
@@ -79,9 +87,17 @@ pub const ObjManager = struct {
         // free the ObjClosures
         const ownedSlice4 = self.objectClosures.toOwnedSlice();
         for (ownedSlice4) |o| {
+            self.allocator.free(o.upvalues);
             self.allocator.destroy(o);
         }
         self.allocator.free(ownedSlice4);
+
+        // free the ObjUpvalues
+        const ownedSlice5 = self.objectUpvalues.toOwnedSlice();
+        for (ownedSlice5) |o| {
+            self.allocator.destroy(o);
+        }
+        self.allocator.free(ownedSlice5);
 
         // free the objects arraylist
         self.objects.deinit();
@@ -91,6 +107,12 @@ pub const ObjManager = struct {
 
         // free the objectFns arraylist
         self.objectNatives.deinit();
+
+        // free the objectFns arraylist
+        self.objectClosures.deinit();
+
+        // free the objectFns arraylist
+        self.objectUpvalues.deinit();
 
         // free the strings hash table
         self.strings.deinit();
@@ -160,13 +182,31 @@ pub const ObjManager = struct {
     }
 
     pub fn newClosure(self: *ObjManager, function: *ObjFunction) !*ObjClosure {
+        const upvalues: []*ObjUpvalue = try self.allocator.alloc(*ObjUpvalue, function.upvalueCount);
+        //// skipping nulling them out ala C-programming
+        // for (int i = 0; i < function->upvalueCount; i++) {
+        //     upvalues[i] = NULL;
+        // }
+
         var closure: *ObjClosure = try self.allocator.create(ObjClosure);
         closure.function = function;
+        closure.upvalues = upvalues;
+        closure.upvalueCount = function.upvalueCount;
 
         // capture this object, so we can free later
         try self.objectClosures.append(closure);
 
         return closure;
+    }
+
+    pub fn newUpvalue(self: *ObjManager, slot: *Value) !*ObjUpvalue {
+        var upvalue: *ObjUpvalue = try self.allocator.create(ObjUpvalue);
+        upvalue.location = slot;
+
+        // capture this object, so we can free later
+        try self.objectUpvalues.append(upvalue);
+
+        return upvalue;
     }
 };
 

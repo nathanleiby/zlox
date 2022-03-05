@@ -7,10 +7,20 @@ const ObjString = @import("./object.zig").ObjString;
 const ObjFunction = @import("./object.zig").ObjFunction;
 const ObjNative = @import("./object.zig").ObjNative;
 const ObjClosure = @import("./object.zig").ObjClosure;
+const ObjUpvalue = @import("./object.zig").ObjUpvalue;
 
 // More info on unions in Zig:
 // https://ziglang.org/documentation/master/#union
-pub const ValueType = enum { boolean, number, nil, objString, objFunction, objNative, objClosure };
+pub const ValueType = enum {
+    boolean,
+    number,
+    nil,
+    objString,
+    objFunction,
+    objNative,
+    objClosure,
+    objUpvalue,
+};
 
 pub const Value = union(ValueType) {
     boolean: bool,
@@ -20,6 +30,7 @@ pub const Value = union(ValueType) {
     objFunction: *ObjFunction,
     objNative: *ObjNative,
     objClosure: *ObjClosure,
+    objUpvalue: *ObjUpvalue,
 
     pub fn isNumber(self: Value) bool {
         return (@as(Value, self) == Value.number);
@@ -85,6 +96,7 @@ pub fn valuesEqual(a: Value, b: Value) bool {
         Value.objFunction => return &a == &b,
         Value.objNative => return &a == &b,
         Value.objClosure => return &a == &b,
+        Value.objUpvalue => return &a == &b,
     }
 }
 
@@ -104,6 +116,7 @@ pub fn printValue(value: Value) void {
         Value.objFunction => |v| printFunction(v),
         Value.objNative => |_| print("<native fn>", .{}),
         Value.objClosure => |v| printFunction(v.function),
+        Value.objUpvalue => print("upvalue", .{}), // will never be printed for an end-user. just for compiler development.
     }
 }
 
