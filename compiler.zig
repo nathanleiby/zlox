@@ -23,6 +23,7 @@ const MAX_CONSTANTS = 256;
 const compilerError = error{
     TODO,
     LocalNotFound,
+    UpvalueNotFound,
     ParserError,
 };
 
@@ -119,6 +120,11 @@ const Local = struct {
     depth: i16,
 };
 
+const Upvalue = struct {
+    index: u8,
+    isLocal: bool,
+};
+
 const FunctionType = enum {
     Function,
     Script,
@@ -132,6 +138,7 @@ const Compiler = struct {
 
     locals: [U8_COUNT]Local,
     localCount: u8,
+    upvalues: [U8_COUNT]Upvalue,
     scopeDepth: i16,
 
     pub fn init(type_: FunctionType, om: *ObjManager, enclosing: *Compiler) !Compiler {
@@ -140,6 +147,7 @@ const Compiler = struct {
             .type_ = type_,
             .locals = [_]Local{Local{ .token = undefined, .depth = 0 }} ** U8_COUNT,
             .localCount = 1, // claim 1 local as a placeholder
+            .upvalues = [_]Upvalue{Upvalue{ .index = 0, .isLocal = false }} ** U8_COUNT,
             .scopeDepth = 0,
             .enclosing = enclosing,
         };
@@ -643,6 +651,10 @@ fn namedVariable(token: Token, canAssign: bool) !void {
         arg = @truncate(u8, localArg);
         getOp = OpCode.GetLocal;
         setOp = OpCode.SetLocal;
+    } else if (resolveUpvalue(current, token)) |upvalueArg| {
+        arg = @truncate(u8, upvalueArg);
+        getOp = OpCode.GetUpvalue;
+        setOp = OpCode.SetUpvalue;
     } else |_| { // ignore the error
         arg = try identifierConstant(token);
         getOp = OpCode.GetGlobal;
@@ -677,6 +689,40 @@ fn resolveLocal(compilerInstance: *Compiler, token: Token) compilerError!usize {
     }
 
     return compilerError.LocalNotFound;
+}
+
+fn resolveUpvalue(compilerInstance: *Compiler, token: Token) compilerError!usize {
+    if (compilerInstance.enclosing == null) {
+        // we're in the global scope
+        return compilerError.UpvalueNotFound;
+    }
+
+    if (resolveLocal(compilerInstance.enclosing, token)) |local| {
+        return addUpvalue(compilerInstance, local, true);
+    }
+
+    return compilerError.LocalNotFound;
+}
+
+fn addUpvalue(compilerInstance: *Compiler, index: u8, isLocal: bool) usize {
+    const upvalueCount = compilerInstance.function.upvalueCount;
+
+    // check if the upvalue is already in the list
+    var i = 0;
+    while (i < upvalueCount) {
+        const upvalue = compilerInstance.upvalues[i];
+        if (upvalue.index == index and upvalue.isLocal == isLocal) {
+            return i;
+        }
+        i += 1;
+    }
+
+    // if not, add a new one
+    compilerInstance.upvalues[upvalueCount].isLocal = isLocal;
+    compilerInstance.upvalues[upvalueCount].index = index;
+
+    compilerInstance.function.upvalueCount += 1;
+    return compilerInstance.function.upvalueCount;
 }
 
 fn identifiersEqual(a: Token, b: Token) bool {

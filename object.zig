@@ -15,6 +15,7 @@ pub const ObjString = struct {
 
 pub const ObjFunction = struct {
     arity: u8,
+    upvalueCount: u8,
     chunk: *Chunk,
     name: ?*ObjString = null,
 };
@@ -138,6 +139,7 @@ pub const ObjManager = struct {
     pub fn newFunction(self: *ObjManager) !*ObjFunction {
         var function: *ObjFunction = try self.allocator.create(ObjFunction);
         function.arity = 0;
+        function.upvalueCount = 0;
         function.name = null;
         function.chunk = try Chunk.init(self.allocator);
 
