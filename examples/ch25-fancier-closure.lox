@@ -1,0 +1,21 @@
+{
+  var a = 1;
+  fun f() {
+    var f_x = 10;
+    print f_x+a;
+  }
+  var b = 2;
+  fun g() {
+    var g_x = 100;
+    print g_x+a+b;
+  }
+  var c = 3;
+  fun h() {
+    var h_x = 1000;
+    print h_x+a+b+c;
+  }
+
+  f();
+  g();
+  h();
+}

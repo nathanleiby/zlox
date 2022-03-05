@@ -118,6 +118,7 @@ const Parser = struct {
 const Local = struct {
     token: Token,
     depth: i16,
+    isCaptured: bool,
 };
 
 const Upvalue = struct {
@@ -145,7 +146,7 @@ const Compiler = struct {
         var c = Compiler{
             .function = undefined, // see 24.2.1 .. revisit in light of garbage collector
             .type_ = type_,
-            .locals = [_]Local{Local{ .token = undefined, .depth = 0 }} ** U8_COUNT,
+            .locals = [_]Local{Local{ .token = undefined, .depth = 0, .isCaptured = false }} ** U8_COUNT,
             .localCount = 1, // claim 1 local as a placeholder
             .upvalues = [_]Upvalue{Upvalue{ .index = 0, .isLocal = false }} ** U8_COUNT,
             .scopeDepth = 0,
@@ -335,7 +336,7 @@ fn addLocal(token: Token) void {
     current.localCount += 1;
     local.token = token;
     local.depth = -1; // -1 denotes uninitialized
-
+    local.isCaptured = false;
 }
 
 fn markInitialized() void {
@@ -395,7 +396,11 @@ fn endScope() void {
 
     // when local variables leave scope, remove them from the stack
     while (current.localCount > 0 and current.locals[current.localCount - 1].depth > current.scopeDepth) {
-        emitByte(@enumToInt(OpCode.Pop));
+        if (current.locals[current.localCount - 1].isCaptured) {
+            emitByte(@enumToInt(OpCode.CloseUpvalue));
+        } else {
+            emitByte(@enumToInt(OpCode.Pop));
+        }
         current.localCount -= 1;
     }
 }
@@ -702,6 +707,7 @@ fn resolveUpvalue(compilerInstance: *Compiler, token: Token) compilerError!usize
     }
 
     if (resolveLocal(compilerInstance.enclosing.?, token)) |local| {
+        compilerInstance.enclosing.?.locals[local].isCaptured = true;
         return addUpvalue(compilerInstance, @truncate(u8, local), true);
     } else |_| {
         // ignore error

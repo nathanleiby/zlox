@@ -36,6 +36,7 @@ pub const OpCode = enum(u8) {
     Closure,
     GetUpvalue,
     SetUpvalue,
+    CloseUpvalue,
 };
 
 pub const Chunk = struct {
@@ -118,8 +119,9 @@ pub const Chunk = struct {
             .JumpIfFalse => return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset),
             .Loop => return jumpInstruction("OP_LOOP", -1, chunk, offset),
             .Closure => return closureInstruction(chunk, offset),
-            .GetUpvalue => return byteInstruction("GET_UPVALUE", chunk, offset),
-            .SetUpvalue => return byteInstruction("SET_UPVALUE", chunk, offset),
+            .GetUpvalue => return byteInstruction("OP_GET_UPVALUE", chunk, offset),
+            .SetUpvalue => return byteInstruction("OP_SET_UPVALUE", chunk, offset),
+            .CloseUpvalue => return simpleInstruction("OP_CLOSE_UPVALUE", offset),
         }
     }
 };

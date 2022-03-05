@@ -63,6 +63,7 @@ pub const VM = struct {
     frame: *CallFrame,
     allocator: Allocator,
     ip: usize, // instruction pointer
+    openUpvalues: ?*ObjUpvalue, // linked list of open upvalues
 
     pub fn init(a: Allocator) !VM {
         var vm = VM{
@@ -74,6 +75,7 @@ pub const VM = struct {
             .frames = [_]CallFrame{CallFrame{ .closure = undefined, .ip = 0, .slotOffset = 0 }} ** FRAMES_MAX,
             .frameCount = 0,
             .frame = undefined,
+            .openUpvalues = null,
         };
 
         try vm.defineNative("clock", clockNative);
@@ -112,6 +114,10 @@ pub const VM = struct {
 
     fn pop(self: *VM) Value {
         return self.stack.pop();
+    }
+
+    fn stackTop(self: *VM) usize {
+        return self.stack.items.len;
     }
 
     fn isValidBinaryOp(self: *VM) bool {
@@ -201,6 +207,8 @@ pub const VM = struct {
                 },
                 .Return => {
                     const result: Value = self.pop();
+
+                    self.closeUpvalues(&self.stack.items[self.frame.slotOffset]);
 
                     // move outward one frame
                     self.frameCount -= 1;
@@ -359,6 +367,10 @@ pub const VM = struct {
                     // print("Upvalues length = {any}\n", .{self.frame.closure.upvalues.len});
                     self.frame.closure.upvalues[slot - 1].location.* = self.peek(0);
                 },
+                .CloseUpvalue => {
+                    self.closeUpvalues(&self.stack.items[self.stackTop() - 1]);
+                    _ = self.pop();
+                },
             }
         }
 
@@ -403,7 +415,7 @@ pub const VM = struct {
         } else if (callee.isNative()) {
             const native: NativeFunction = callee.objNative.function;
             const result: Value = native(argCount);
-            // TODO: add support for a native function that takes arguments
+            // TODO: add support for a native function that takes arguments, such as math fns like sqrt.
             //  could also be args I invent..
             //  e.g. could pass "s", "ms", "ns" to the clock() function, if desired
             //
@@ -454,8 +466,41 @@ pub const VM = struct {
     }
 
     fn captureUpvalue(self: *VM, local: *Value) !*ObjUpvalue {
+        // scan through the upvalues to see if we already have one for this local
+        // we can pointers to compare because those pointers refer to ordered locations within the stack
+        var prev: ?*ObjUpvalue = null;
+        var cur: ?*ObjUpvalue = self.openUpvalues;
+        while (cur != null and @ptrToInt(cur.?.location) > @ptrToInt(local)) {
+            prev = cur;
+            cur = cur.?.next;
+        }
+
+        if (cur != null and @ptrToInt(cur.?.location) == @ptrToInt(local)) {
+            return cur.?;
+        }
+
+        // otherwise, create a new upvalue
         const createdUpvalue: *ObjUpvalue = try self.objManager.newUpvalue(local);
+        createdUpvalue.next = cur;
+        if (prev == null) {
+            // insert at the beginning of linked list
+            self.openUpvalues = createdUpvalue;
+        } else {
+            // insert after an existing node in linked list
+            prev.?.next = createdUpvalue;
+        }
         return createdUpvalue;
+    }
+
+    // `last` is a pointer to a stack slot
+    //  closes every open upvalue it can find that points to that slot or any slot above it on the stack.
+    fn closeUpvalues(self: *VM, last: *Value) void {
+        while (self.openUpvalues != null and @ptrToInt(self.openUpvalues.?.location) >= @ptrToInt(last)) {
+            const upvalue: *ObjUpvalue = self.openUpvalues.?;
+            upvalue.closed = upvalue.location.*;
+            upvalue.location = &upvalue.closed;
+            self.openUpvalues = upvalue.next;
+        }
     }
 };
 

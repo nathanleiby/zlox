@@ -34,6 +34,8 @@ pub const ObjClosure = struct {
 
 pub const ObjUpvalue = struct {
     location: *Value,
+    next: ?*ObjUpvalue,
+    closed: Value,
 };
 
 pub const ObjManager = struct {
@@ -202,6 +204,8 @@ pub const ObjManager = struct {
     pub fn newUpvalue(self: *ObjManager, slot: *Value) !*ObjUpvalue {
         var upvalue: *ObjUpvalue = try self.allocator.create(ObjUpvalue);
         upvalue.location = slot;
+        upvalue.next = null;
+        upvalue.closed = Value{ .nil = undefined };
 
         // capture this object, so we can free later
         try self.objectUpvalues.append(upvalue);
