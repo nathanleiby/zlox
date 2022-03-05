@@ -1,8 +1,14 @@
 fun outer() {
-  var x = "outside";
+  var x = "outside_x";
+  var y = "outside_y";
+  var z = "outside_z";
   fun inner() {
+    x = "inside_x";
     print x;
+    print y;
+    print z;
   }
+  y = "outside_y2";
   inner();
 }
 outer();

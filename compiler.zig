@@ -658,21 +658,16 @@ fn namedVariable(token: Token, canAssign: bool) !void {
         getOp = OpCode.GetLocal;
         setOp = OpCode.SetLocal;
     } else |_| {
-        // ignore error
+        if (resolveUpvalue(current, token)) |upvalueArg| {
+            arg = @truncate(u8, upvalueArg);
+            getOp = OpCode.GetUpvalue;
+            setOp = OpCode.SetUpvalue;
+        } else |_| {
+            arg = try identifierConstant(token);
+            getOp = OpCode.GetGlobal;
+            setOp = OpCode.SetGlobal;
+        }
     }
-
-    if (resolveUpvalue(current, token)) |upvalueArg| {
-        arg = @truncate(u8, upvalueArg);
-        getOp = OpCode.GetUpvalue;
-        setOp = OpCode.SetUpvalue;
-    } else |_| {
-        // ignore error
-    }
-
-    // ignore the error
-    arg = try identifierConstant(token);
-    getOp = OpCode.GetGlobal;
-    setOp = OpCode.SetGlobal;
 
     if (canAssign and match(TokenType.EQUAL)) {
         expression();
@@ -684,20 +679,16 @@ fn namedVariable(token: Token, canAssign: bool) !void {
 
 // TODO: Why would this fn take the compiler as an arg whereas it gets passed in as a global?
 fn resolveLocal(compilerInstance: *Compiler, token: Token) compilerError!usize {
-    var i: usize = compilerInstance.localCount;
-    while (true) {
-        const local = compilerInstance.locals[i];
-
+    var i: i16 = compilerInstance.localCount - 1;
+    while (i >= 0) {
+        const local = compilerInstance.locals[@intCast(u8, i)];
         if (identifiersEqual(local.token, token)) {
             if (local.depth == -1) {
                 err("Can't read local variable in its own initializer.");
             }
-            return i;
+            return @intCast(usize, i);
         }
 
-        if (i == 0) {
-            break;
-        }
         i -= 1;
     }
 
@@ -733,7 +724,8 @@ fn addUpvalue(compilerInstance: *Compiler, index: u8, isLocal: bool) usize {
     while (i < upvalueCount) {
         const upvalue = compilerInstance.upvalues[i];
         if (upvalue.index == index and upvalue.isLocal == isLocal) {
-            return i;
+            // return i;
+            return i + 1; // TODO: trying to fix off by one bug
         }
         i += 1;
     }
