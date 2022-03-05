@@ -427,7 +427,7 @@ fn function(type_: FunctionType) !void {
     try block();
 
     const func: *ObjFunction = endCompiler();
-    emitBytes(@enumToInt(OpCode.Constant), makeConstant(Value{ .objFunction = func }));
+    emitBytes(@enumToInt(OpCode.Closure), makeConstant(Value{ .objFunction = func }));
 }
 
 fn printStatement() void {

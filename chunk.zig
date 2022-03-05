@@ -33,6 +33,7 @@ pub const OpCode = enum(u8) {
     Jump,
     Loop,
     Call,
+    Closure,
 };
 
 pub const Chunk = struct {
@@ -114,6 +115,9 @@ pub const Chunk = struct {
             .Jump => return jumpInstruction("OP_JUMP", 1, chunk, offset),
             .JumpIfFalse => return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset),
             .Loop => return jumpInstruction("OP_LOOP", -1, chunk, offset),
+            .Closure => {
+                return constantInstruction("OP_CLOSURE", chunk, offset + 1);
+            },
         }
     }
 };
