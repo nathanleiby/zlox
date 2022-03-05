@@ -25,11 +25,16 @@ pub const ObjNative = struct {
 
 pub const NativeFunction = fn (argCount: u8) Value;
 
+pub const ObjClosure = struct {
+    function: *ObjFunction,
+};
+
 pub const ObjManager = struct {
     allocator: Allocator,
     objects: std.ArrayList(*ObjString),
     objectFns: std.ArrayList(*ObjFunction),
     objectNatives: std.ArrayList(*ObjNative),
+    objectClosures: std.ArrayList(*ObjClosure),
     strings: std.StringHashMap(*ObjString),
     globals: std.StringHashMap(Value),
 
@@ -39,6 +44,7 @@ pub const ObjManager = struct {
         om.objects = std.ArrayList(*ObjString).init(allocator);
         om.objectFns = std.ArrayList(*ObjFunction).init(allocator);
         om.objectNatives = std.ArrayList(*ObjNative).init(allocator);
+        om.objectClosures = std.ArrayList(*ObjClosure).init(allocator);
         om.strings = std.StringHashMap(*ObjString).init(allocator);
         om.globals = std.StringHashMap(Value).init(allocator);
         return om;
@@ -68,6 +74,13 @@ pub const ObjManager = struct {
             self.allocator.destroy(o);
         }
         self.allocator.free(ownedSlice3);
+
+        // free the ObjClosures
+        const ownedSlice4 = self.objectClosures.toOwnedSlice();
+        for (ownedSlice4) |o| {
+            self.allocator.destroy(o);
+        }
+        self.allocator.free(ownedSlice4);
 
         // free the objects arraylist
         self.objects.deinit();
@@ -143,6 +156,16 @@ pub const ObjManager = struct {
 
         return native;
     }
+
+    pub fn newClosure(self: *ObjManager, function: *ObjFunction) !*ObjClosure {
+        var closure: *ObjClosure = try self.allocator.create(ObjClosure);
+        closure.function = function;
+
+        // capture this object, so we can free later
+        try self.objectClosures.append(closure);
+
+        return closure;
+    }
 };
 
 test "Copy a string" {
@@ -194,4 +217,14 @@ test "obj manager can create a native function object" {
     defer om.free();
 
     _ = try om.newNative(nativeAnswerToLife);
+}
+
+test "obj manager can create a closure object" {
+    const allocator = std.testing.allocator;
+
+    var om = try ObjManager.init(allocator);
+    defer om.free();
+
+    var f = try om.newFunction();
+    _ = try om.newClosure(f);
 }

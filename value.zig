@@ -6,10 +6,11 @@ const expectEqualStrings = std.testing.expectEqualStrings;
 const ObjString = @import("./object.zig").ObjString;
 const ObjFunction = @import("./object.zig").ObjFunction;
 const ObjNative = @import("./object.zig").ObjNative;
+const ObjClosure = @import("./object.zig").ObjClosure;
 
 // More info on unions in Zig:
 // https://ziglang.org/documentation/master/#union
-pub const ValueType = enum { boolean, number, nil, objString, objFunction, objNative };
+pub const ValueType = enum { boolean, number, nil, objString, objFunction, objNative, objClosure };
 
 pub const Value = union(ValueType) {
     boolean: bool,
@@ -18,6 +19,7 @@ pub const Value = union(ValueType) {
     objString: *ObjString,
     objFunction: *ObjFunction,
     objNative: *ObjNative,
+    objClosure: *ObjClosure,
 
     pub fn isNumber(self: Value) bool {
         return (@as(Value, self) == Value.number);
@@ -41,6 +43,14 @@ pub const Value = union(ValueType) {
 
     pub fn isNative(self: Value) bool {
         return (@as(Value, self) == Value.objNative);
+    }
+
+    pub fn isClosure(self: Value) bool {
+        return (@as(Value, self) == Value.objClosure);
+    }
+
+    pub fn asClosure(self: Value) bool {
+        return self.objClosure;
     }
 
     pub fn isFalsey(self: Value) bool {
@@ -80,25 +90,28 @@ pub fn valuesEqual(a: Value, b: Value) bool {
         ValueType.nil => return true,
         ValueType.number => return a.number == b.number,
         ValueType.objString => return std.mem.eql(u8, a.asCString(), b.asCString()),
-        Value.objFunction => return &a == &b, // TODO
-        Value.objNative => return &a == &b, // TODO
+        Value.objFunction => return &a == &b,
+        Value.objNative => return &a == &b,
+        Value.objClosure => return &a == &b,
     }
 }
 
+fn printFunction(objFunction: *ObjFunction) void {
+    if (objFunction.name) |name| {
+        print("<fn {s}>", .{name.*.chars});
+    } else {
+        print("<script>", .{});
+    }
+}
 pub fn printValue(value: Value) void {
     switch (value) {
         Value.number => |v| print("{d}", .{v}),
         Value.boolean => |v| print("{b}", .{v}),
         Value.nil => |_| print("nil", .{}),
         Value.objString => |_| print("{s}", .{value.asCString()}),
-        Value.objFunction => |_| {
-            if (value.objFunction.name) |name| {
-                print("<fn {s}>", .{name.*.chars});
-            } else {
-                print("<script>", .{});
-            }
-        },
+        Value.objFunction => |v| printFunction(v),
         Value.objNative => |_| print("<native fn>", .{}),
+        Value.objClosure => |v| printFunction(v.function),
     }
 }
 
