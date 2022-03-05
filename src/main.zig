@@ -33,7 +33,10 @@ pub fn main() !void {
 const maxFileSize: usize = 1024;
 fn runFile(path: []u8) !void {
     // TODO: handle error: FileNotFound
-    var file = try std.fs.cwd().openFile(path, .{});
+    var file = std.fs.cwd().openFile(path, .{}) catch |e| {
+        print("unable to open file '{s}': {any}\n", .{ path, e });
+        std.os.exit(1);
+    };
     defer file.close();
 
     const source: []u8 = try file.readToEndAlloc(allocator, maxFileSize);
