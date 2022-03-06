@@ -1,7 +1,7 @@
 // Debug Flags
 
 // global flag to enable/disable all
-const enable_debugging = true;
+const enable_debugging = false;
 
 // VM (Runtime)
 pub const TRACE_EXECUTION_INCLUDE_INSTRUCTIONS = enable_debugging and false;

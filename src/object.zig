@@ -44,7 +44,7 @@ pub const ObjUpvalue = struct {
 
 pub const ObjManager = struct {
     allocator: Allocator,
-    objects: std.ArrayList(*ObjString),
+    objectStrings: std.ArrayList(*ObjString),
     objectFns: std.ArrayList(*ObjFunction),
     objectNatives: std.ArrayList(*ObjNative),
     objectClosures: std.ArrayList(*ObjClosure),
@@ -58,7 +58,7 @@ pub const ObjManager = struct {
     pub fn init(allocator: Allocator) !*ObjManager {
         const om: *ObjManager = try allocator.create(ObjManager);
         om.allocator = allocator;
-        om.objects = std.ArrayList(*ObjString).init(allocator);
+        om.objectStrings = std.ArrayList(*ObjString).init(allocator);
         om.objectFns = std.ArrayList(*ObjFunction).init(allocator);
         om.objectNatives = std.ArrayList(*ObjNative).init(allocator);
         om.objectClosures = std.ArrayList(*ObjClosure).init(allocator);
@@ -70,7 +70,7 @@ pub const ObjManager = struct {
 
     pub fn free(self: *ObjManager) void {
         // free the ObjString's
-        const ownedSlice = self.objects.toOwnedSlice();
+        const ownedSlice = self.objectStrings.toOwnedSlice();
         for (ownedSlice) |o| {
             self.allocator.free(o.chars);
             self.allocator.destroy(o);
@@ -108,8 +108,8 @@ pub const ObjManager = struct {
         }
         self.allocator.free(ownedSlice5);
 
-        // free the objects arraylist
-        self.objects.deinit();
+        // free the objectStrings arraylist
+        self.objectStrings.deinit();
 
         // free the objectFns arraylist
         self.objectFns.deinit();
@@ -137,7 +137,7 @@ pub const ObjManager = struct {
         string.chars = chars;
 
         // capture this object, so we can free later
-        try self.objects.append(string);
+        try self.objectStrings.append(string);
 
         // intern the string on creation
         try self.strings.put(chars, string);
