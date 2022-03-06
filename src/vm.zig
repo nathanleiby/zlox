@@ -91,6 +91,8 @@ pub const VM = struct {
 
     pub fn interpret(self: *VM, source: []u8) !InterpretResult {
         const function = compiler.compile(source, self.objManager) catch return InterpretResult.CompileError;
+        // register VM with object manager, so it can collect garbage based on VM's stack
+        self.objManager._vm = self;
 
         const fnVal = Value{ .objFunction = function };
         try self.push(fnVal); // garbage collection dance

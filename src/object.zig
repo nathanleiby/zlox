@@ -8,6 +8,10 @@ const allocate = @import("./memory.zig").allocate;
 const Value = @import("./value.zig").Value;
 const Chunk = @import("./chunk.zig").Chunk;
 
+const VM = @import("./vm.zig").VM;
+const Compiler = @import("./compiler.zig").Compiler;
+const debug = @import("./debug.zig");
+
 pub const ObjString = struct {
     length: usize,
     chars: []const u8,
@@ -47,6 +51,9 @@ pub const ObjManager = struct {
     objectUpvalues: std.ArrayList(*ObjUpvalue),
     strings: std.StringHashMap(*ObjString),
     globals: std.StringHashMap(Value),
+    // references set up by callers, to support GC
+    _vm: *VM,
+    _currentCompiler: **Compiler,
 
     pub fn init(allocator: Allocator) !*ObjManager {
         const om: *ObjManager = try allocator.create(ObjManager);
@@ -124,6 +131,7 @@ pub const ObjManager = struct {
     }
 
     fn allocateString(self: *ObjManager, chars: []const u8, length: usize) !*ObjString {
+        if (debug.STRESS_GC) self.collectGarbage();
         var string: *ObjString = try self.allocator.create(ObjString);
         string.length = length;
         string.chars = chars;
@@ -161,6 +169,7 @@ pub const ObjManager = struct {
     }
 
     pub fn newFunction(self: *ObjManager) !*ObjFunction {
+        if (debug.STRESS_GC) self.collectGarbage();
         var function: *ObjFunction = try self.allocator.create(ObjFunction);
         function.arity = 0;
         function.upvalueCount = 0;
@@ -174,6 +183,7 @@ pub const ObjManager = struct {
     }
 
     pub fn newNative(self: *ObjManager, function: NativeFunction) !*ObjNative {
+        if (debug.STRESS_GC) self.collectGarbage();
         var native: *ObjNative = try self.allocator.create(ObjNative);
         native.function = function;
 
@@ -184,6 +194,7 @@ pub const ObjManager = struct {
     }
 
     pub fn newClosure(self: *ObjManager, function: *ObjFunction) !*ObjClosure {
+        if (debug.STRESS_GC) self.collectGarbage();
         const upvalues: []*ObjUpvalue = try self.allocator.alloc(*ObjUpvalue, function.upvalueCount);
         //// skipping nulling them out ala C-programming
         // for (int i = 0; i < function->upvalueCount; i++) {
@@ -202,6 +213,7 @@ pub const ObjManager = struct {
     }
 
     pub fn newUpvalue(self: *ObjManager, slot: *Value) !*ObjUpvalue {
+        if (debug.STRESS_GC) self.collectGarbage();
         var upvalue: *ObjUpvalue = try self.allocator.create(ObjUpvalue);
         upvalue.location = slot;
         upvalue.next = null;
@@ -212,6 +224,13 @@ pub const ObjManager = struct {
 
         return upvalue;
     }
+
+    fn collectGarbage(_: *ObjManager) void {
+        if (debug.LOG_GC) print("-- gc begin\n", .{});
+        if (debug.LOG_GC) print("-- gc end\n", .{});
+    }
+
+    // fn markRoots(self: *ObjManager) void {}
 };
 
 test "Copy a string" {

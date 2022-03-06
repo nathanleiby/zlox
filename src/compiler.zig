@@ -131,7 +131,7 @@ const FunctionType = enum {
     Script,
 };
 
-const Compiler = struct {
+pub const Compiler = struct {
     function: *ObjFunction,
     type_: FunctionType,
 
@@ -170,6 +170,9 @@ var objManager: *ObjManager = undefined;
 pub fn compile(source: []u8, om: *ObjManager) !*ObjFunction {
     // startup -- could be comptime TODO
     initRules();
+
+    // save ref in ObjManager, so it can collect garbage based on compiler's state
+    om._currentCompiler = &current;
 
     // setup the compiler
     objManager = om;
@@ -988,4 +991,9 @@ fn emitByte(byte: u8) void {
 // tokenString uses the source code's text to look up a string
 fn tokenString(token: Token) []const u8 {
     return scanner.source[token.start .. token.start + token.length];
+}
+
+// markCompilerRoots is for garbage collection
+pub fn markCompilerRoots() void {
+    return current;
 }
