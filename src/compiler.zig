@@ -171,13 +171,11 @@ pub fn compile(source: []u8, om: *ObjManager) !*ObjFunction {
     // startup -- could be comptime TODO
     initRules();
 
-    // save ref in ObjManager, so it can collect garbage based on compiler's state
-    om._currentCompiler = &current;
-
     // setup the compiler
     objManager = om;
     var compiler = try Compiler.init(FunctionType.Script, objManager, current);
     current = &compiler;
+    om.isCompilerInitialized = true;
 
     scanner = Scanner.init(source);
     parser = Parser{
@@ -995,5 +993,14 @@ fn tokenString(token: Token) []const u8 {
 
 // markCompilerRoots is for garbage collection
 pub fn markCompilerRoots() void {
-    return current;
+    if (debug.LOG_GC) print("-- gc: mark compiler roots\n", .{});
+    if (debug.LOG_GC) print("-- gc: SKIPPING mark compiler roots\n", .{});
+    return;
+    // var compiler: *Compiler = current;
+    // compiler.function.markObject();
+
+    // while (compiler.enclosing != null) {
+    //     compiler = compiler.enclosing.?;
+    //     compiler.function.markObject();
+    // }
 }

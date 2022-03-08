@@ -9,12 +9,38 @@ const Value = @import("./value.zig").Value;
 const Chunk = @import("./chunk.zig").Chunk;
 
 const VM = @import("./vm.zig").VM;
-const Compiler = @import("./compiler.zig").Compiler;
+const compiler = @import("./compiler.zig");
 const debug = @import("./debug.zig");
+const printValue = @import("./value.zig").printValue;
+
+// TODO: COuld draw a stronger distinction between Objs and Values?
+// Or could just put values on the gray stack and :shrug: only do stuff if they're objects.
+// One thing that's tricky is NULL object checks in C.. my objects are non-optional
+
+// pub const ObjType = enum {
+//     objString,
+//     objFunction,
+//     objNative,
+//     objClosure,
+//     objUpvalue,
+// };
+
+// pub const Obj = union(ValueType) {
+//     objString: *ObjString,
+//     objFunction: *ObjFunction,
+//     objNative: *ObjNative,
+//     objClosure: *ObjClosure,
+//     objUpvalue: *ObjUpvalue,
+// };
 
 pub const ObjString = struct {
     length: usize,
     chars: []const u8,
+    isMarked: bool = false,
+
+    fn markObject(self: *ObjString) void {
+        self.isMarked = true;
+    }
 };
 
 pub const ObjFunction = struct {
@@ -22,10 +48,20 @@ pub const ObjFunction = struct {
     upvalueCount: u8,
     chunk: *Chunk,
     name: ?*ObjString = null,
+    isMarked: bool = false,
+
+    pub fn markObject(self: *ObjFunction) void {
+        self.isMarked = true;
+    }
 };
 
 pub const ObjNative = struct {
     function: NativeFunction,
+    isMarked: bool = false,
+
+    fn markObject(self: *ObjNative) void {
+        self.isMarked = true;
+    }
 };
 
 pub const NativeFunction = fn (argCount: u8) Value;
@@ -34,12 +70,22 @@ pub const ObjClosure = struct {
     function: *ObjFunction,
     upvalueCount: u8,
     upvalues: []*ObjUpvalue,
+    isMarked: bool = false,
+
+    fn markObject(self: *ObjClosure) void {
+        self.isMarked = true;
+    }
 };
 
 pub const ObjUpvalue = struct {
     location: *Value,
     next: ?*ObjUpvalue,
     closed: Value,
+    isMarked: bool = false,
+
+    fn markObject(self: *ObjUpvalue) void {
+        self.isMarked = true;
+    }
 };
 
 pub const ObjManager = struct {
@@ -52,8 +98,8 @@ pub const ObjManager = struct {
     strings: std.StringHashMap(*ObjString),
     globals: std.StringHashMap(Value),
     // references set up by callers, to support GC
-    _vm: *VM,
-    _currentCompiler: **Compiler,
+    _vm: ?*VM,
+    isCompilerInitialized: bool,
 
     pub fn init(allocator: Allocator) !*ObjManager {
         const om: *ObjManager = try allocator.create(ObjManager);
@@ -65,6 +111,10 @@ pub const ObjManager = struct {
         om.objectUpvalues = std.ArrayList(*ObjUpvalue).init(allocator);
         om.strings = std.StringHashMap(*ObjString).init(allocator);
         om.globals = std.StringHashMap(Value).init(allocator);
+
+        // reference to VM gets added in vm.interpret() .. this allows for garbage collection
+        om._vm = null;
+        om.isCompilerInitialized = false;
         return om;
     }
 
@@ -76,6 +126,8 @@ pub const ObjManager = struct {
             self.allocator.destroy(o);
         }
         self.allocator.free(ownedSlice);
+        self.objectStrings.deinit();
+        self.strings.deinit(); // interned strings hash table
 
         // free the ObjFunction's
         const ownedSlice2 = self.objectFns.toOwnedSlice();
@@ -85,6 +137,7 @@ pub const ObjManager = struct {
             self.allocator.destroy(o);
         }
         self.allocator.free(ownedSlice2);
+        self.objectFns.deinit();
 
         // free the ObjNative's
         const ownedSlice3 = self.objectNatives.toOwnedSlice();
@@ -92,6 +145,7 @@ pub const ObjManager = struct {
             self.allocator.destroy(o);
         }
         self.allocator.free(ownedSlice3);
+        self.objectNatives.deinit();
 
         // free the ObjClosures
         const ownedSlice4 = self.objectClosures.toOwnedSlice();
@@ -100,6 +154,7 @@ pub const ObjManager = struct {
             self.allocator.destroy(o);
         }
         self.allocator.free(ownedSlice4);
+        self.objectClosures.deinit();
 
         // free the ObjUpvalues
         const ownedSlice5 = self.objectUpvalues.toOwnedSlice();
@@ -107,24 +162,7 @@ pub const ObjManager = struct {
             self.allocator.destroy(o);
         }
         self.allocator.free(ownedSlice5);
-
-        // free the objectStrings arraylist
-        self.objectStrings.deinit();
-
-        // free the objectFns arraylist
-        self.objectFns.deinit();
-
-        // free the objectFns arraylist
-        self.objectNatives.deinit();
-
-        // free the objectFns arraylist
-        self.objectClosures.deinit();
-
-        // free the objectFns arraylist
         self.objectUpvalues.deinit();
-
-        // free the strings hash table
-        self.strings.deinit();
 
         // free the ObjManager itself
         self.allocator.destroy(self);
@@ -225,13 +263,81 @@ pub const ObjManager = struct {
         return upvalue;
     }
 
-    fn collectGarbage(_: *ObjManager) void {
+    fn collectGarbage(self: *ObjManager) void {
         if (debug.LOG_GC) print("-- gc begin\n", .{});
+        // when running some unit tests, we don't have a VM or compiler
+        if (self._vm != null) self.markRoots();
+        // TODO: This is failing in unit tests
+        if (self.isCompilerInitialized) compiler.markCompilerRoots();
         if (debug.LOG_GC) print("-- gc end\n", .{});
     }
 
-    // fn markRoots(self: *ObjManager) void {}
+    fn markRoots(self: *ObjManager) void {
+        const vm = self._vm.?;
+        // values in Stack
+        if (debug.LOG_GC) print("-- gc: mark values in Stack\n", .{});
+        var i: u8 = 0;
+        while (i < vm.stack.items.len) {
+            markValue(vm.stack.items[i]);
+            i += 1;
+        }
+
+        // closures in the CallFrames
+        if (debug.LOG_GC) print("-- gc: mark closures in the CallFrames\n", .{});
+        var j: u8 = 1; // TODO: We are ignoring the placeholder index (later used for 'this' in classes)
+        while (j < vm.frameCount) {
+            vm.frames[i].closure.markObject();
+            j += 1;
+        }
+
+        // upvalues
+        if (debug.LOG_GC) print("-- gc: mark upvalues\n", .{});
+        var upvalue = vm.openUpvalues;
+        while (upvalue) |u| {
+            u.markObject();
+            upvalue = u.next;
+        }
+
+        // global variables
+        if (debug.LOG_GC) print("-- gc: mark global variables\n", .{});
+        markValuesTable(self.globals);
+    }
 };
+
+fn markValue(value: Value) void {
+    if (debug.LOG_GC) print("{*} mark ", .{&value});
+    if (debug.LOG_GC) printValue(value);
+    if (debug.LOG_GC) print("\n", .{});
+
+    switch (value) {
+        Value.number => return,
+        Value.boolean => return,
+        Value.nil => return,
+        Value.objString => |v| v.markObject(),
+        Value.objFunction => |v| v.markObject(),
+        Value.objNative => |v| v.markObject(),
+        Value.objClosure => |v| v.markObject(),
+        Value.objUpvalue => |v| v.markObject(),
+    }
+}
+
+fn markValuesTable(a: std.StringHashMap(Value)) void {
+    var iterator = a.iterator();
+
+    while (iterator.next()) |entry| {
+        // skipping marking keys
+        markValue(entry.value_ptr.*);
+    }
+}
+
+fn markStringsTable(a: std.StringHashMap(*ObjString)) void {
+    var iterator = a.iterator();
+
+    while (iterator.next()) |entry| {
+        // skipping marking keys
+        entry.value_ptr.*.markObject();
+    }
+}
 
 test "Copy a string" {
     const allocator = std.testing.allocator;

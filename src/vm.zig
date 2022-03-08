@@ -12,7 +12,6 @@ const valuesEqual = @import("./value.zig").valuesEqual;
 const printValue = @import("./value.zig").printValue;
 
 const ObjManager = @import("./object.zig").ObjManager;
-const ObjString = @import("./object.zig").ObjString;
 const ObjClosure = @import("./object.zig").ObjClosure;
 const ObjUpvalue = @import("./object.zig").ObjUpvalue;
 const NativeFunction = @import("./object.zig").NativeFunction;
@@ -65,6 +64,7 @@ pub const VM = struct {
     ip: usize, // instruction pointer
     openUpvalues: ?*ObjUpvalue, // linked list of open upvalues
 
+    // TODO: return a pointer to a VM? set objManager -> VM ref?
     pub fn init(a: Allocator) !VM {
         var vm = VM{
             .objManager = try ObjManager.init(a),
