@@ -142,7 +142,7 @@ pub const Compiler = struct {
     upvalues: [U8_COUNT]Upvalue,
     scopeDepth: i16,
 
-    pub fn init(type_: FunctionType, om: *ObjManager, enclosing: *Compiler) !Compiler {
+    pub fn init(type_: FunctionType, om: *ObjManager, enclosing: ?*Compiler) !Compiler {
         var c = Compiler{
             .function = undefined, // see 24.2.1 .. revisit in light of garbage collector
             .type_ = type_,
@@ -171,11 +171,13 @@ pub fn compile(source: []u8, om: *ObjManager) !*ObjFunction {
     // startup -- could be comptime TODO
     initRules();
 
-    // setup the compiler
+    // save reference to object manager
     objManager = om;
-    var compiler = try Compiler.init(FunctionType.Script, objManager, current);
+
+    // setup the compiler
+    var compiler = try Compiler.init(FunctionType.Script, objManager, null);
     current = &compiler;
-    om.isCompilerInitialized = true;
+    objManager.isCompilerInitialized = true;
 
     scanner = Scanner.init(source);
     parser = Parser{
@@ -901,6 +903,7 @@ fn endCompiler() *ObjFunction {
     } else {
         // we're at the top of the stack, so we're done
         // unsafe warning warning
+        objManager.isCompilerInitialized = false;
         current = undefined;
     }
 
@@ -994,13 +997,12 @@ fn tokenString(token: Token) []const u8 {
 // markCompilerRoots is for garbage collection
 pub fn markCompilerRoots() void {
     if (debug.LOG_GC) print("-- gc: mark compiler roots\n", .{});
-    if (debug.LOG_GC) print("-- gc: SKIPPING mark compiler roots\n", .{});
-    return;
-    // var compiler: *Compiler = current;
-    // compiler.function.markObject();
 
-    // while (compiler.enclosing != null) {
-    //     compiler = compiler.enclosing.?;
-    //     compiler.function.markObject();
-    // }
+    var compiler: *Compiler = current;
+    compiler.function.markObject();
+
+    while (compiler.enclosing != null) {
+        compiler = compiler.enclosing.?;
+        compiler.function.markObject();
+    }
 }
