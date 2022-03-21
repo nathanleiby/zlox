@@ -17,20 +17,31 @@ const printValue = @import("./value.zig").printValue;
 // Or could just put values on the gray stack and :shrug: only do stuff if they're objects.
 // One thing that's tricky is NULL object checks in C.. my objects are non-optional
 
-// pub const ObjType = enum {
-//     objString,
-//     objFunction,
-//     objNative,
-//     objClosure,
-//     objUpvalue,
-// };
+// Object wrapper
 
-// pub const Obj = union(ValueType) {
-//     objString: *ObjString,
-//     objFunction: *ObjFunction,
-//     objNative: *ObjNative,
-//     objClosure: *ObjClosure,
-//     objUpvalue: *ObjUpvalue,
+pub const ObjType = enum {
+    objString,
+    objFunction,
+    objNative,
+    objClosure,
+    objUpvalue,
+};
+
+pub const Obj = union(ValueType) {
+    objString: *ObjString,
+    objFunction: *ObjFunction,
+    objNative: *ObjNative,
+    objClosure: *ObjClosure,
+    objUpvalue: *ObjUpvalue,
+};
+
+// pub const Obj = struct {
+//     data: ObjUnion,
+//     isMarked: bool,
+
+//     fn markObject(self: *Obj) void {
+//         self.isMarked = true;
+//     }
 // };
 
 pub const ObjString = struct {
@@ -40,6 +51,10 @@ pub const ObjString = struct {
 
     fn markObject(self: *ObjString) void {
         self.isMarked = true;
+    }
+
+    fn blackenObject(self: *ObjString) void {
+        // no-op
     }
 };
 
@@ -53,6 +68,18 @@ pub const ObjFunction = struct {
     pub fn markObject(self: *ObjFunction) void {
         self.isMarked = true;
     }
+
+    fn blackenObject(self: *ObjFunction) void {
+        if (self.name) |name| {
+            name.markObject();
+        }
+        // markArray
+        var i: u8 = 0;
+        while (i < self.chunk.values.items.len) {
+            markValue(self.chunk.values.items[i]);
+            i += 1;
+        }
+    }
 };
 
 pub const ObjNative = struct {
@@ -61,6 +88,10 @@ pub const ObjNative = struct {
 
     fn markObject(self: *ObjNative) void {
         self.isMarked = true;
+    }
+
+    fn blackenObject(self: *ObjNative) void {
+        // no-op
     }
 };
 
@@ -75,6 +106,15 @@ pub const ObjClosure = struct {
     fn markObject(self: *ObjClosure) void {
         self.isMarked = true;
     }
+
+    fn blackenObject(self: *ObjClosure) void {
+        self.function.blackenObject();
+        var i: u8 = 0;
+        while (i < self.upvalueCount) {
+            self.upvalues[i].blackenObject();
+            i += 1;
+        }
+    }
 };
 
 pub const ObjUpvalue = struct {
@@ -84,7 +124,13 @@ pub const ObjUpvalue = struct {
     isMarked: bool = false,
 
     fn markObject(self: *ObjUpvalue) void {
+        // TODO: exit early if already marked, to avoid loop
         self.isMarked = true;
+        // TODO: markObject fns should add to grayStack
+    }
+
+    fn blackenObject(self: *ObjUpvalue) void {
+        markValue(self.closed);
     }
 };
 
@@ -97,6 +143,10 @@ pub const ObjManager = struct {
     objectUpvalues: std.ArrayList(*ObjUpvalue),
     strings: std.StringHashMap(*ObjString),
     globals: std.StringHashMap(Value),
+
+    // GC
+    grayStack: std.ArrayList(Obj), // pointers to objects
+
     // references set up by callers, to support GC
     _vm: ?*VM,
     isCompilerInitialized: bool,
@@ -112,9 +162,10 @@ pub const ObjManager = struct {
         om.strings = std.StringHashMap(*ObjString).init(allocator);
         om.globals = std.StringHashMap(Value).init(allocator);
 
-        // reference to VM gets added in vm.interpret() .. this allows for garbage collection
-        om._vm = null;
-        om.isCompilerInitialized = false;
+        // Garbage collection
+        om.grayStack = std.ArrayList(Obj).init(allocator);
+        om._vm = null; // set by vm.interpret()
+        om.isCompilerInitialized = false; // set by compiler.compile()
         return om;
     }
 
@@ -163,6 +214,9 @@ pub const ObjManager = struct {
         }
         self.allocator.free(ownedSlice5);
         self.objectUpvalues.deinit();
+
+        // cleanup the grayList (GC)
+        self.grayList.deinit();
 
         // free the ObjManager itself
         self.allocator.destroy(self);
@@ -266,7 +320,10 @@ pub const ObjManager = struct {
     fn collectGarbage(self: *ObjManager) void {
         if (debug.LOG_GC) print("-- gc begin\n", .{});
         // when running some unit tests, we don't have a VM or compiler
-        if (self._vm != null) self.markRoots();
+        if (self._vm != null) {
+            self.markRoots();
+            self.traceReferences();
+        }
         // TODO: This is failing in unit tests
         if (self.isCompilerInitialized) compiler.markCompilerRoots();
         if (debug.LOG_GC) print("-- gc end\n", .{});
@@ -301,6 +358,19 @@ pub const ObjManager = struct {
         // global variables
         if (debug.LOG_GC) print("-- gc: mark global variables\n", .{});
         markValuesTable(self.globals);
+    }
+
+    fn traceReferences(self: *ObjManager) void {
+        if (debug.LOG_GC) print("-- gc: trace references\n", .{});
+        while (self.grayStack.popOrNull()) |obj| {
+            switch (obj) {
+                Obj.objString => |v| v.blackenObject(),
+                Obj.objFunction => |v| v.blackenObject(),
+                Obj.objNative => |v| v.blackenObject(),
+                Obj.objClosure => |v| v.blackenObject(),
+                Obj.objUpvalue => |v| v.blackenObject(),
+            }
+        }
     }
 };
 
