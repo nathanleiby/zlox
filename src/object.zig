@@ -284,9 +284,9 @@ pub const ObjManager = struct {
 
         // closures in the CallFrames
         if (debug.LOG_GC) print("-- gc: mark closures in the CallFrames\n", .{});
-        var j: u8 = 1; // TODO: We are ignoring the placeholder index (later used for 'this' in classes)
+        var j: u8 = 0;
         while (j < vm.frameCount) {
-            vm.frames[i].closure.markObject();
+            vm.frames[j].closure.markObject();
             j += 1;
         }
 
