@@ -245,10 +245,7 @@ pub const ObjManager = struct {
         string.length = length;
         string.chars = chars;
 
-        // capture this object, so we can free later
-        var node: *L.Node = try self.allocator.create(L.Node);
-        node.data = Obj{ .objString = string };
-        self.objects.prepend(node);
+        try self.trackObject(Obj{ .objString = string });
 
         // intern the string on creation
         try self.strings.put(chars, string);
@@ -287,10 +284,7 @@ pub const ObjManager = struct {
         function.name = null;
         function.chunk = try Chunk.init(self.allocator);
 
-        // capture this object, so we can free later
-        var node: *L.Node = try self.allocator.create(L.Node);
-        node.data = Obj{ .objFunction = function };
-        self.objects.prepend(node);
+        try self.trackObject(Obj{ .objFunction = function });
 
         return function;
     }
@@ -300,10 +294,7 @@ pub const ObjManager = struct {
         var native: *ObjNative = try self.allocator.create(ObjNative);
         native.function = function;
 
-        // capture this object, so we can free later
-        var node: *L.Node = try self.allocator.create(L.Node);
-        node.data = Obj{ .objNative = native };
-        self.objects.prepend(node);
+        try self.trackObject(Obj{ .objNative = native });
 
         return native;
     }
@@ -312,12 +303,9 @@ pub const ObjManager = struct {
         if (debug.STRESS_GC) self.collectGarbage();
         const upvalues: []*ObjUpvalue = try self.allocator.alloc(*ObjUpvalue, function.upvalueCount);
 
-        // capture this object, so we can free later
         var i: usize = 0;
         while (i < function.upvalueCount) {
-            var node: *L.Node = try self.allocator.create(L.Node);
-            node.data = Obj{ .objUpvalue = upvalues[i] };
-            self.objects.prepend(node);
+            try self.trackObject(Obj{ .objUpvalue = upvalues[i] });
             i += 1;
         }
 
@@ -326,10 +314,7 @@ pub const ObjManager = struct {
         closure.upvalues = upvalues;
         closure.upvalueCount = function.upvalueCount;
 
-        // capture this object, so we can free later
-        var node: *L.Node = try self.allocator.create(L.Node);
-        node.data = Obj{ .objClosure = closure };
-        self.objects.prepend(node);
+        try self.trackObject(Obj{ .objClosure = closure });
 
         return closure;
     }
@@ -341,12 +326,15 @@ pub const ObjManager = struct {
         upvalue.next = null;
         upvalue.closed = Value{ .nil = undefined };
 
-        // capture this object, so we can free later
-        var node: *L.Node = try self.allocator.create(L.Node);
-        node.data = Obj{ .objUpvalue = upvalue };
-        self.objects.prepend(node);
+        try self.trackObject(Obj{ .objUpvalue = upvalue });
 
         return upvalue;
+    }
+
+    fn trackObject(self: *ObjManager, obj: Obj) !void {
+        var node: *L.Node = try self.allocator.create(L.Node);
+        node.data = obj;
+        self.objects.prepend(node);
     }
 
     fn collectGarbage(self: *ObjManager) void {
