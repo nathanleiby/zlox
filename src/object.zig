@@ -13,12 +13,6 @@ const compiler = @import("./compiler.zig");
 const debug = @import("./debug.zig");
 const printValue = @import("./value.zig").printValue;
 
-// TODO: COuld draw a stronger distinction between Objs and Values?
-// Or could just put values on the gray stack and :shrug: only do stuff if they're objects.
-// One thing that's tricky is NULL object checks in C.. my objects are non-optional
-
-// Object wrapper
-
 pub const ObjType = enum {
     objString,
     objFunction,
@@ -27,12 +21,35 @@ pub const ObjType = enum {
     objUpvalue,
 };
 
+// Obj abstracts over pointers to various object types
 pub const Obj = union(ObjType) {
     objString: *ObjString,
     objFunction: *ObjFunction,
     objNative: *ObjNative,
     objClosure: *ObjClosure,
     objUpvalue: *ObjUpvalue,
+
+    fn free(self: Obj, om: *ObjManager) void {
+        switch (self) {
+            Obj.objString => |o| {
+                om.allocator.free(o.chars);
+                om.allocator.destroy(o);
+            },
+            Obj.objFunction => |o| {
+                // o.chunk.free(); // TODO: This is the segfault
+                om.allocator.destroy(o.chunk);
+                om.allocator.destroy(o);
+            },
+            Obj.objNative => |o| om.allocator.destroy(o),
+            Obj.objClosure => |o| {
+                om.allocator.free(o.upvalues);
+                om.allocator.destroy(o);
+            },
+            Obj.objUpvalue => |o| {
+                om.allocator.destroy(o);
+            },
+        }
+    }
 };
 
 pub const ObjString = struct {
@@ -133,18 +150,18 @@ pub const ObjUpvalue = struct {
     }
 };
 
+const L = std.SinglyLinkedList(Obj);
+
 pub const ObjManager = struct {
     allocator: Allocator,
-    objectStrings: std.ArrayList(*ObjString),
-    objectFns: std.ArrayList(*ObjFunction),
-    objectNatives: std.ArrayList(*ObjNative),
-    objectClosures: std.ArrayList(*ObjClosure),
-    objectUpvalues: std.ArrayList(*ObjUpvalue),
+
+    objects: L,
+
     strings: std.StringHashMap(*ObjString),
     globals: std.StringHashMap(Value),
 
     // GC
-    grayStack: std.ArrayList(Obj), // pointers to objects
+    grayStack: std.ArrayList(Obj),
 
     // references set up by callers, to support GC
     _vm: ?*VM,
@@ -153,11 +170,9 @@ pub const ObjManager = struct {
     pub fn init(allocator: Allocator) !*ObjManager {
         const om: *ObjManager = try allocator.create(ObjManager);
         om.allocator = allocator;
-        om.objectStrings = std.ArrayList(*ObjString).init(allocator);
-        om.objectFns = std.ArrayList(*ObjFunction).init(allocator);
-        om.objectNatives = std.ArrayList(*ObjNative).init(allocator);
-        om.objectClosures = std.ArrayList(*ObjClosure).init(allocator);
-        om.objectUpvalues = std.ArrayList(*ObjUpvalue).init(allocator);
+
+        om.objects = L{};
+
         om.strings = std.StringHashMap(*ObjString).init(allocator);
         om.globals = std.StringHashMap(Value).init(allocator);
 
@@ -169,50 +184,22 @@ pub const ObjManager = struct {
     }
 
     pub fn free(self: *ObjManager) void {
-        // free the ObjString's
-        const ownedSlice = self.objectStrings.toOwnedSlice();
-        for (ownedSlice) |o| {
-            self.allocator.free(o.chars);
-            self.allocator.destroy(o);
-        }
-        self.allocator.free(ownedSlice);
-        self.objectStrings.deinit();
         self.strings.deinit(); // interned strings hash table
+        // self.globals.deinit(); // globals table // TODO
 
-        // free the ObjFunction's
-        const ownedSlice2 = self.objectFns.toOwnedSlice();
-        for (ownedSlice2) |o| {
-            // o.chunk.free(); // TODO: This is the segfault
-            self.allocator.destroy(o.chunk);
-            self.allocator.destroy(o);
-        }
-        self.allocator.free(ownedSlice2);
-        self.objectFns.deinit();
+        // free the nodes in the object linked list
+        var it: ?*L.Node = self.objects.first;
+        while (it != null) {
+            const node = it.?;
+            it = node.next;
 
-        // free the ObjNative's
-        const ownedSlice3 = self.objectNatives.toOwnedSlice();
-        for (ownedSlice3) |o| {
-            self.allocator.destroy(o);
-        }
-        self.allocator.free(ownedSlice3);
-        self.objectNatives.deinit();
+            // free the data within
+            node.data.free(self);
 
-        // free the ObjClosures
-        const ownedSlice4 = self.objectClosures.toOwnedSlice();
-        for (ownedSlice4) |o| {
-            self.allocator.free(o.upvalues);
-            self.allocator.destroy(o);
+            // free the linked-list node
+            self.objects.remove(node); // optional
+            self.allocator.destroy(node);
         }
-        self.allocator.free(ownedSlice4);
-        self.objectClosures.deinit();
-
-        // free the ObjUpvalues
-        const ownedSlice5 = self.objectUpvalues.toOwnedSlice();
-        for (ownedSlice5) |o| {
-            self.allocator.destroy(o);
-        }
-        self.allocator.free(ownedSlice5);
-        self.objectUpvalues.deinit();
 
         // cleanup the grayStack (GC)
         self.grayStack.deinit();
@@ -228,7 +215,9 @@ pub const ObjManager = struct {
         string.chars = chars;
 
         // capture this object, so we can free later
-        try self.objectStrings.append(string);
+        var node: *L.Node = try self.allocator.create(L.Node);
+        node.data = Obj{ .objString = string };
+        self.objects.prepend(node);
 
         // intern the string on creation
         try self.strings.put(chars, string);
@@ -268,7 +257,9 @@ pub const ObjManager = struct {
         function.chunk = try Chunk.init(self.allocator);
 
         // capture this object, so we can free later
-        try self.objectFns.append(function);
+        var node: *L.Node = try self.allocator.create(L.Node);
+        node.data = Obj{ .objFunction = function };
+        self.objects.prepend(node);
 
         return function;
     }
@@ -279,7 +270,9 @@ pub const ObjManager = struct {
         native.function = function;
 
         // capture this object, so we can free later
-        try self.objectNatives.append(native);
+        var node: *L.Node = try self.allocator.create(L.Node);
+        node.data = Obj{ .objNative = native };
+        self.objects.prepend(node);
 
         return native;
     }
@@ -287,10 +280,15 @@ pub const ObjManager = struct {
     pub fn newClosure(self: *ObjManager, function: *ObjFunction) !*ObjClosure {
         if (debug.STRESS_GC) self.collectGarbage();
         const upvalues: []*ObjUpvalue = try self.allocator.alloc(*ObjUpvalue, function.upvalueCount);
-        //// skipping nulling them out ala C-programming
-        // for (int i = 0; i < function->upvalueCount; i++) {
-        //     upvalues[i] = NULL;
-        // }
+
+        // capture this object, so we can free later
+        var i: usize = 0;
+        while (i < function.upvalueCount) {
+            var node: *L.Node = try self.allocator.create(L.Node);
+            node.data = Obj{ .objUpvalue = upvalues[i] };
+            self.objects.prepend(node);
+            i += 1;
+        }
 
         var closure: *ObjClosure = try self.allocator.create(ObjClosure);
         closure.function = function;
@@ -298,7 +296,9 @@ pub const ObjManager = struct {
         closure.upvalueCount = function.upvalueCount;
 
         // capture this object, so we can free later
-        try self.objectClosures.append(closure);
+        var node: *L.Node = try self.allocator.create(L.Node);
+        node.data = Obj{ .objClosure = closure };
+        self.objects.prepend(node);
 
         return closure;
     }
@@ -311,7 +311,9 @@ pub const ObjManager = struct {
         upvalue.closed = Value{ .nil = undefined };
 
         // capture this object, so we can free later
-        try self.objectUpvalues.append(upvalue);
+        var node: *L.Node = try self.allocator.create(L.Node);
+        node.data = Obj{ .objUpvalue = upvalue };
+        self.objects.prepend(node);
 
         return upvalue;
     }
@@ -322,6 +324,7 @@ pub const ObjManager = struct {
         if (self._vm != null) {
             self.markRoots();
             self.traceReferences();
+            // self.sweep(); // TODO
         }
         // TODO: This is failing in unit tests
         if (self.isCompilerInitialized) compiler.markCompilerRoots();
@@ -371,6 +374,12 @@ pub const ObjManager = struct {
             }
         }
     }
+
+    // fn sweep(self: *ObjManager) void {
+    //     // TODO
+    //     return
+
+    // }
 };
 
 fn markValue(value: Value, om: *ObjManager) void {
