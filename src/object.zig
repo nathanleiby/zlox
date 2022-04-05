@@ -27,7 +27,7 @@ pub const ObjType = enum {
     objUpvalue,
 };
 
-pub const Obj = union(ValueType) {
+pub const Obj = union(ObjType) {
     objString: *ObjString,
     objFunction: *ObjFunction,
     objNative: *ObjNative,
@@ -53,7 +53,7 @@ pub const ObjString = struct {
         self.isMarked = true;
     }
 
-    fn blackenObject(self: *ObjString) void {
+    fn blackenObject(_: *ObjString) void {
         // no-op
     }
 };
@@ -90,7 +90,7 @@ pub const ObjNative = struct {
         self.isMarked = true;
     }
 
-    fn blackenObject(self: *ObjNative) void {
+    fn blackenObject(_: *ObjNative) void {
         // no-op
     }
 };
@@ -215,8 +215,8 @@ pub const ObjManager = struct {
         self.allocator.free(ownedSlice5);
         self.objectUpvalues.deinit();
 
-        // cleanup the grayList (GC)
-        self.grayList.deinit();
+        // cleanup the grayStack (GC)
+        self.grayStack.deinit();
 
         // free the ObjManager itself
         self.allocator.destroy(self);
