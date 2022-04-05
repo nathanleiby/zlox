@@ -35,25 +35,18 @@ pub const Obj = union(ObjType) {
     objUpvalue: *ObjUpvalue,
 };
 
-// pub const Obj = struct {
-//     data: ObjUnion,
-//     isMarked: bool,
-
-//     fn markObject(self: *Obj) void {
-//         self.isMarked = true;
-//     }
-// };
-
 pub const ObjString = struct {
     length: usize,
     chars: []const u8,
     isMarked: bool = false,
 
-    fn markObject(self: *ObjString) void {
+    fn markObject(self: *ObjString, om: *ObjManager) void {
+        if (self.isMarked) return;
         self.isMarked = true;
+        om.grayStack.append(Obj{ .objString = self }) catch return;
     }
 
-    fn blackenObject(_: *ObjString) void {
+    fn blackenObject(_: *ObjString, _: *ObjManager) void {
         // no-op
     }
 };
@@ -65,18 +58,20 @@ pub const ObjFunction = struct {
     name: ?*ObjString = null,
     isMarked: bool = false,
 
-    pub fn markObject(self: *ObjFunction) void {
+    pub fn markObject(self: *ObjFunction, om: *ObjManager) void {
+        if (self.isMarked) return;
         self.isMarked = true;
+        om.grayStack.append(Obj{ .objFunction = self }) catch return;
     }
 
-    fn blackenObject(self: *ObjFunction) void {
+    fn blackenObject(self: *ObjFunction, om: *ObjManager) void {
         if (self.name) |name| {
-            name.markObject();
+            name.markObject(om);
         }
         // markArray
         var i: u8 = 0;
         while (i < self.chunk.values.items.len) {
-            markValue(self.chunk.values.items[i]);
+            markValue(self.chunk.values.items[i], om);
             i += 1;
         }
     }
@@ -86,11 +81,13 @@ pub const ObjNative = struct {
     function: NativeFunction,
     isMarked: bool = false,
 
-    fn markObject(self: *ObjNative) void {
+    fn markObject(self: *ObjNative, om: *ObjManager) void {
+        if (self.isMarked) return;
         self.isMarked = true;
+        om.grayStack.append(Obj{ .objNative = self }) catch return;
     }
 
-    fn blackenObject(_: *ObjNative) void {
+    fn blackenObject(_: *ObjNative, _: *ObjManager) void {
         // no-op
     }
 };
@@ -103,15 +100,17 @@ pub const ObjClosure = struct {
     upvalues: []*ObjUpvalue,
     isMarked: bool = false,
 
-    fn markObject(self: *ObjClosure) void {
+    fn markObject(self: *ObjClosure, om: *ObjManager) void {
+        if (self.isMarked) return;
         self.isMarked = true;
+        om.grayStack.append(Obj{ .objClosure = self }) catch return;
     }
 
-    fn blackenObject(self: *ObjClosure) void {
-        self.function.blackenObject();
+    fn blackenObject(self: *ObjClosure, om: *ObjManager) void {
+        self.function.blackenObject(om);
         var i: u8 = 0;
         while (i < self.upvalueCount) {
-            self.upvalues[i].blackenObject();
+            self.upvalues[i].blackenObject(om);
             i += 1;
         }
     }
@@ -123,14 +122,14 @@ pub const ObjUpvalue = struct {
     closed: Value,
     isMarked: bool = false,
 
-    fn markObject(self: *ObjUpvalue) void {
-        // TODO: exit early if already marked, to avoid loop
+    fn markObject(self: *ObjUpvalue, om: *ObjManager) void {
+        if (self.isMarked) return;
         self.isMarked = true;
-        // TODO: markObject fns should add to grayStack
+        om.grayStack.append(Obj{ .objUpvalue = self }) catch return;
     }
 
-    fn blackenObject(self: *ObjUpvalue) void {
-        markValue(self.closed);
+    fn blackenObject(self: *ObjUpvalue, om: *ObjManager) void {
+        markValue(self.closed, om);
     }
 };
 
@@ -335,7 +334,7 @@ pub const ObjManager = struct {
         if (debug.LOG_GC) print("-- gc: mark values in Stack\n", .{});
         var i: u8 = 0;
         while (i < vm.stack.items.len) {
-            markValue(vm.stack.items[i]);
+            markValue(vm.stack.items[i], self);
             i += 1;
         }
 
@@ -343,7 +342,7 @@ pub const ObjManager = struct {
         if (debug.LOG_GC) print("-- gc: mark closures in the CallFrames\n", .{});
         var j: u8 = 0;
         while (j < vm.frameCount) {
-            vm.frames[j].closure.markObject();
+            vm.frames[j].closure.markObject(self);
             j += 1;
         }
 
@@ -351,30 +350,30 @@ pub const ObjManager = struct {
         if (debug.LOG_GC) print("-- gc: mark upvalues\n", .{});
         var upvalue = vm.openUpvalues;
         while (upvalue) |u| {
-            u.markObject();
+            u.markObject(self);
             upvalue = u.next;
         }
 
         // global variables
         if (debug.LOG_GC) print("-- gc: mark global variables\n", .{});
-        markValuesTable(self.globals);
+        markValuesTable(self.globals, self);
     }
 
     fn traceReferences(self: *ObjManager) void {
         if (debug.LOG_GC) print("-- gc: trace references\n", .{});
         while (self.grayStack.popOrNull()) |obj| {
             switch (obj) {
-                Obj.objString => |v| v.blackenObject(),
-                Obj.objFunction => |v| v.blackenObject(),
-                Obj.objNative => |v| v.blackenObject(),
-                Obj.objClosure => |v| v.blackenObject(),
-                Obj.objUpvalue => |v| v.blackenObject(),
+                Obj.objString => |v| v.blackenObject(self),
+                Obj.objFunction => |v| v.blackenObject(self),
+                Obj.objNative => |v| v.blackenObject(self),
+                Obj.objClosure => |v| v.blackenObject(self),
+                Obj.objUpvalue => |v| v.blackenObject(self),
             }
         }
     }
 };
 
-fn markValue(value: Value) void {
+fn markValue(value: Value, om: *ObjManager) void {
     if (debug.LOG_GC) print("{*} mark ", .{&value});
     if (debug.LOG_GC) printValue(value);
     if (debug.LOG_GC) print("\n", .{});
@@ -383,29 +382,29 @@ fn markValue(value: Value) void {
         Value.number => return,
         Value.boolean => return,
         Value.nil => return,
-        Value.objString => |v| v.markObject(),
-        Value.objFunction => |v| v.markObject(),
-        Value.objNative => |v| v.markObject(),
-        Value.objClosure => |v| v.markObject(),
-        Value.objUpvalue => |v| v.markObject(),
+        Value.objString => |v| v.markObject(om),
+        Value.objFunction => |v| v.markObject(om),
+        Value.objNative => |v| v.markObject(om),
+        Value.objClosure => |v| v.markObject(om),
+        Value.objUpvalue => |v| v.markObject(om),
     }
 }
 
-fn markValuesTable(a: std.StringHashMap(Value)) void {
+fn markValuesTable(a: std.StringHashMap(Value), om: *ObjManager) void {
     var iterator = a.iterator();
 
     while (iterator.next()) |entry| {
         // skipping marking keys
-        markValue(entry.value_ptr.*);
+        markValue(entry.value_ptr.*, om);
     }
 }
 
-fn markStringsTable(a: std.StringHashMap(*ObjString)) void {
+fn markStringsTable(a: std.StringHashMap(*ObjString), om: *ObjManager) void {
     var iterator = a.iterator();
 
     while (iterator.next()) |entry| {
         // skipping marking keys
-        entry.value_ptr.*.markObject();
+        entry.value_ptr.*.markObject(om);
     }
 }
 

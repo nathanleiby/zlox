@@ -999,10 +999,10 @@ pub fn markCompilerRoots() void {
     if (debug.LOG_GC) print("-- gc: mark compiler roots\n", .{});
 
     var compiler: *Compiler = current;
-    compiler.function.markObject();
+    compiler.function.markObject(objManager);
 
     while (compiler.enclosing != null) {
         compiler = compiler.enclosing.?;
-        compiler.function.markObject();
+        compiler.function.markObject(objManager);
     }
 }
