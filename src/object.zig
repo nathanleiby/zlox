@@ -50,6 +50,37 @@ pub const Obj = union(ObjType) {
             },
         }
     }
+
+    fn checkIsMarkedAndUnset(self: Obj) bool {
+        switch (self) {
+            Obj.objString => |o| {
+                const val = o.isMarked;
+                o.isMarked = false;
+                return val;
+            },
+            Obj.objFunction => |o| {
+                const val = o.isMarked;
+                o.isMarked = false;
+                return val;
+
+            },
+            Obj.objNative => |o| {
+                const val = o.isMarked;
+                o.isMarked = false;
+                return val;
+            },
+            Obj.objClosure => |o| {
+                const val = o.isMarked;
+                o.isMarked = false;
+                return val;
+            },
+            Obj.objUpvalue => |o| {
+                const val = o.isMarked;
+                o.isMarked = false;
+                return val;
+            },
+        }
+    }
 };
 
 pub const ObjString = struct {
@@ -324,7 +355,7 @@ pub const ObjManager = struct {
         if (self._vm != null) {
             self.markRoots();
             self.traceReferences();
-            // self.sweep(); // TODO
+            self.sweep();
         }
         // TODO: This is failing in unit tests
         if (self.isCompilerInitialized) compiler.markCompilerRoots();
@@ -375,11 +406,25 @@ pub const ObjManager = struct {
         }
     }
 
-    // fn sweep(self: *ObjManager) void {
-    //     // TODO
-    //     return
+    fn sweep(self: *ObjManager) void {
+        if (debug.LOG_GC) print("-- gc: sweep (start) \n", .{});
+        // free the nodes in the object linked list
+        var it: ?*L.Node = self.objects.first;
+        while (it != null) {
+            const node = it.?;
+            it = node.next;
 
-    // }
+            const marked = node.data.checkIsMarkedAndUnset();
+            if (!marked) {
+                if (debug.LOG_GC) print("-- gc: sweep: free node {any}\n", .{node.data});
+                node.data.free(self);
+                self.objects.remove(node);
+                self.allocator.destroy(node);
+            }
+        }
+
+        if (debug.LOG_GC) print("-- gc: sweep (end) \n", .{});
+    }
 };
 
 fn markValue(value: Value, om: *ObjManager) void {
