@@ -1,0 +1,13 @@
+fun initCounter() {
+  var privateCounter = 0;
+  fun incr() {
+    privateCounter = privateCounter + 1;
+    return privateCounter;
+  }
+  return incr;
+}
+
+var count = initCounter();
+print(count());
+print(count());
+print(count());
